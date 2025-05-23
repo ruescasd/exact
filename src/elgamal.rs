@@ -1,5 +1,8 @@
-use curve25519_dalek::{ristretto::{CompressedRistretto, RistrettoPoint}, Scalar};
-use crate::size::{Parseable, Size, Pair};
+use crate::size::{Pair, Parseable, Size};
+use curve25519_dalek::{
+    Scalar,
+    ristretto::{CompressedRistretto, RistrettoPoint},
+};
 
 #[derive(Debug, Clone)]
 struct Exponent(Scalar);
@@ -11,7 +14,7 @@ impl Exponent {
 impl Size for Exponent {
     const SIZE: usize = 32; // Scalar is 32 bytes
 }
-impl Parseable<{Exponent::SIZE}> for Exponent {
+impl Parseable<{ Exponent::SIZE }> for Exponent {
     fn parse(bytes: [u8; Exponent::SIZE]) -> Self {
         let scalar = Scalar::from_canonical_bytes(bytes).unwrap();
         Exponent::new(scalar)
@@ -33,7 +36,7 @@ impl Size for Element {
     const SIZE: usize = 32; // RistrettoPoint is 32 bytes
 }
 
-impl Parseable<{Element::SIZE}> for Element {
+impl Parseable<{ Element::SIZE }> for Element {
     fn parse(bytes: [u8; Element::SIZE]) -> Self {
         let point = CompressedRistretto(bytes).decompress().unwrap();
         Element::new(point)
@@ -68,7 +71,7 @@ impl ElGamal {
 }
 
 struct KeyPair(Pair<Element, Exponent>);
-impl  KeyPair{
+impl KeyPair {
     fn new() -> Self {
         let secret = Scalar::random(&mut rand::thread_rng());
         let pair = Pair {
@@ -91,7 +94,7 @@ impl  KeyPair{
         let r = Scalar::random(&mut rand::thread_rng());
         let gr = RistrettoPoint::mul_base(&r);
         let mhr = message.0 + (self.pkey().0 * r);
-        
+
         ElGamal::new(Element(gr), Element(mhr))
     }
 
@@ -114,7 +117,6 @@ impl  KeyPair{
 mod tests {
     use super::*;
     use curve25519_dalek::scalar::Scalar;
-    
 
     #[test]
     fn test_element() {
@@ -172,5 +174,4 @@ mod tests {
         // Check if the original and decrypted messages are equal
         assert_eq!(message.0, decrypted_message.0);
     }
-
 }

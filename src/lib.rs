@@ -2,5 +2,5 @@
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 
-mod size;
 mod elgamal;
+mod size;
