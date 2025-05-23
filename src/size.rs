@@ -9,12 +9,29 @@ pub trait Parseable<const LEN: usize>: Sized {
     fn write(&self) -> [u8; LEN];
 }
 
+pub struct Pa<T1, T2>
+where
+    T1: Size,
+    T2: Size,
+{
+    pub a: T1,
+    pub b: T2,
+}
+impl<T1, T2> Size for Pa<T1, T2>
+where
+    T1: Size,
+    T2: Size,
+{
+    // const SIZE: usize = T1::SIZE + T2::SIZE;
+    const SIZE: usize = T1::SIZE + T2::SIZE;
+}
+
 #[derive(Debug)]
 pub struct Pair<T1, T2>
 where
     T1: Size,
     T2: Size,
-    [(); T1::SIZE + T2::SIZE]: Sized,
+    // [(); T1::SIZE + T2::SIZE]: Sized,
 {
     pub a: T1,
     pub b: T2,
@@ -24,7 +41,7 @@ impl<T1, T2> Size for Pair<T1, T2>
 where
     T1: Size,
     T2: Size,
-    [(); T1::SIZE + T2::SIZE]: Sized,
+    // [(); T1::SIZE + T2::SIZE]: Sized,
 {
     const SIZE: usize = T1::SIZE + T2::SIZE;
 }

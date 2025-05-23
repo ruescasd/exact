@@ -46,18 +46,19 @@ impl Parseable<{ Element::SIZE }> for Element {
     }
 }
 
-struct ElGamal(Pair<Element, Element>);
+type ElGamal_ = Pair<Element, Element>;
+struct ElGamal(ElGamal_);
 impl ElGamal {
     fn new(a: Element, b: Element) -> Self {
         ElGamal(Pair { a, b })
     }
 
-    fn parse(bytes: [u8; 64]) -> Self {
+    fn parse(bytes: [u8; ElGamal_::SIZE]) -> Self {
         let pair = Pair::parse(bytes);
         ElGamal(pair)
     }
 
-    fn write(&self) -> [u8; 64] {
+    fn write(&self) -> [u8; ElGamal_::SIZE] {
         self.0.write()
     }
 
@@ -70,7 +71,8 @@ impl ElGamal {
     }
 }
 
-struct KeyPair(Pair<Element, Exponent>);
+type KeyPair_ = Pair<Element, Exponent>;
+struct KeyPair(KeyPair_);
 impl KeyPair {
     fn new() -> Self {
         let secret = Scalar::random(&mut rand::thread_rng());
@@ -81,12 +83,12 @@ impl KeyPair {
         KeyPair(pair)
     }
 
-    fn parse(bytes: [u8; 64]) -> Self {
+    fn parse(bytes: [u8; KeyPair_::SIZE]) -> Self {
         let pair = Pair::parse(bytes);
         KeyPair(pair)
     }
 
-    fn write(&self) -> [u8; 64] {
+    fn write(&self) -> [u8; KeyPair_::SIZE] {
         self.0.write()
     }
 
@@ -112,6 +114,47 @@ impl KeyPair {
         self.0.b.clone()
     }
 }
+
+
+struct NewType<const L: usize, T: Parseable<L>>(T);
+impl<const L: usize, T: Parseable<L>> Parseable<L> for NewType<L, T>
+where
+    T: Parseable<L>,
+{
+    fn parse(bytes: [u8; L]) -> Self {
+        NewType(T::parse(bytes))
+    }
+    fn write(&self) -> [u8; L] {
+        self.0.write()
+    }
+}
+
+type ElG = NewType< {Pair::<Element, Element>::SIZE}, Pair<Element, Element>>;
+
+
+type Triple_ = Pair<Element, Pair<Element, Element>>;
+struct Triple(Triple_);
+
+impl Triple {
+    
+    fn new(a: Element, b: Element, c: Element) -> Self {
+        let pair = Pair {
+            a,
+            b: Pair { a: b, b: c },
+        };
+        Triple(pair)
+    }
+
+    fn parse(bytes: [u8; Triple_::SIZE]) -> Self {
+        let pair = Pair::parse(bytes);
+        Triple(pair)
+    }
+
+    fn write(&self) -> [u8; Triple_::SIZE] {
+        self.0.write()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
