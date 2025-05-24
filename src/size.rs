@@ -37,6 +37,34 @@ impl<const LEN: usize, T: Size> Size for Product<LEN, T>
 {
     const SIZE: usize = LEN * T::SIZE;
 }
+impl<const LEN: usize, T: Size> Product<LEN, T> {
+    pub fn zip_with<U, F>(&self, other: &Product<LEN, T>, mut f: F) -> Product<LEN, U>
+    where
+        U: Size, // The resulting element type U must also be Size constrained
+        F: FnMut(&T, &T) -> U, // The combining function
+    {
+        // We need to create an array [U; LEN].
+        // std::array::from_fn is a convenient way to initialize an array
+        // by calling a function for each index. (Requires Rust 1.63+)
+        let result_array = std::array::from_fn(|i| {
+            // Access elements from self.0 and other.0 at index i
+            // and apply the combining function f
+            f(&self.0[i], &other.0[i])
+        });
+        Product(result_array)
+    }
+
+    pub fn map<U, F>(&self, mut f: F) -> Product<LEN, U>
+    where
+        U: Size, // The resulting element type U must also be Size constrained
+        F: FnMut(&T) -> U, // The mapping function
+    {
+        // We need to create an array [U; LEN].
+        let result_array = std::array::from_fn(|i| f(&self.0[i]));
+        
+        Product(result_array)
+    }
+}
 
 #[derive(Debug)]
 pub struct Pair<T1, T2>

@@ -60,6 +60,12 @@ impl ElGamal {
     fn mhr(&self) -> Element {
         self.0.snd.clone()
     }
+
+    fn decrypt(&self, skey: &Exponent) -> Element {
+        let factor = self.gr().0 * skey.0;
+        let decrypted = self.mhr().0 - factor;
+        Element(decrypted)
+    }
 }
 impl Size for ElGamal {
     const SIZE: usize = ElGamal_::SIZE;
@@ -95,9 +101,10 @@ impl KeyPair {
     }
 
     fn decrypt(&self, elgamal: &ElGamal) -> Element {
-        let factor = elgamal.0.fst.0 * self.skey().0;
-        let decrypted = elgamal.0.snd.0 - factor;
-        Element(decrypted)
+        // let factor = elgamal.0.fst.0 * self.skey().0;
+        // let decrypted = elgamal.0.snd.0 - factor;
+        // Element(decrypted)
+        elgamal.decrypt(&self.skey())
     }
 
     fn pkey(&self) -> Element {
@@ -121,32 +128,69 @@ impl Parseable<{ KeyPair::SIZE }> for KeyPair {
     }
 }
 
-// A product of ciphertexts
-type EGProductN_<const LEN: usize> = Product<LEN, ElGamal>;
-
-struct EGProductN<const LEN: usize>(pub EGProductN_<LEN>);
-impl<const LEN: usize> EGProductN<LEN> {
-    fn new(list: [ElGamal; LEN]) -> Self {
-        EGProductN(Product(list))
+// A product of Elements
+type ElementN_<const LEN: usize> = Product<LEN, Element>; // Example for 3 elements
+struct ElementN<const LEN: usize>(pub ElementN_<LEN>);
+impl<const LEN: usize> ElementN<LEN> {
+    fn new(list: [Element; LEN]) -> Self {
+        ElementN(Product(list))
     }
 }
-impl<const LEN: usize> Size for EGProductN<LEN> {
-    const SIZE: usize = EGProductN_::<LEN>::SIZE;
+impl<const LEN: usize> Size for ElementN<LEN> {
+    const SIZE: usize = ElementN_::<LEN>::SIZE;
 }
-impl<const LEN: usize> Parseable<{ Self::SIZE }> for EGProductN<LEN> 
-where Product<LEN, ElGamal>: Parseable<{ Self::SIZE }> 
+impl<const LEN: usize> Parseable<{ Self::SIZE }> for ElementN<LEN> 
+where Product<LEN, Element>: Parseable<{ Self::SIZE }> 
 {
      fn parse(bytes: [u8; Self::SIZE]) -> Self {
-        let list: Product<LEN, ElGamal> = Product::parse(bytes);
-        EGProductN(list)
+        let list: Product<LEN, Element> = Product::parse(bytes);
+        ElementN(list)
     }
     fn write(&self) -> [u8; Self::SIZE] {
         self.0.write()
     }
 }
+impl<const LEN: usize> ElementN<LEN> {
+    pub fn encrypt(&self, keypair: &KeyPair) -> ElGamalN<LEN> {
+        let eg = self.0.map(|element| keypair.encrypt(&element));
+        ElGamalN(eg)
+    }
+}
+
+// A product of ciphertexts
+type ElGamalN_<const LEN: usize> = Product<LEN, ElGamal>;
+
+struct ElGamalN<const LEN: usize>(pub ElGamalN_<LEN>);
+impl<const LEN: usize> ElGamalN<LEN> {
+    fn new(list: [ElGamal; LEN]) -> Self {
+        ElGamalN(Product(list))
+    }
+}
+impl<const LEN: usize> Size for ElGamalN<LEN> {
+    const SIZE: usize = ElGamalN_::<LEN>::SIZE;
+}
+impl<const LEN: usize> Parseable<{ Self::SIZE }> for ElGamalN<LEN> 
+where Product<LEN, ElGamal>: Parseable<{ Self::SIZE }> 
+{
+     fn parse(bytes: [u8; Self::SIZE]) -> Self {
+        let list: Product<LEN, ElGamal> = Product::parse(bytes);
+        ElGamalN(list)
+    }
+    fn write(&self) -> [u8; Self::SIZE] {
+        self.0.write()
+    }
+}
+impl<const LEN: usize> ElGamalN<LEN> {
+    pub fn decrypt(&self, keypair: &KeyPair) -> ElementN<LEN> {
+        let p = self.0.map(|elgamal| keypair.decrypt(&elgamal));
+        ElementN(p)
+    }
+}
 
 #[cfg(test)]
 mod tests {
+    use std::array;
+
     use super::*;
     use curve25519_dalek::scalar::Scalar;
 
@@ -210,29 +254,32 @@ mod tests {
     #[test]
     fn test_eg_product() {
         let keypair = KeyPair::new();
-        let message1 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
-        let message2 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
-        let message3 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
-
-        // Encrypt the messages
-        let elgamal1 = keypair.encrypt(&message1);
-        let elgamal2 = keypair.encrypt(&message2);
-        let elgamal3 = keypair.encrypt(&message3);
-
-        // Creates an elgamal product of size 3 (EGProductN<3>)
-        let product3 = EGProductN::new([elgamal1, elgamal2, elgamal3]);
-
-        // Serialization is type contrained to 192 bytes (EGProductN::<3>::SIZE)
-        let bytes = product3.write();
-        let parsed_product3 = EGProductN::parse(bytes);
-
-        let decrypted_message1 = keypair.decrypt(&parsed_product3.0.0[0]);
-        let decrypted_message2 = keypair.decrypt(&parsed_product3.0.0[1]);
-        let decrypted_message3 = keypair.decrypt(&parsed_product3.0.0[2]);
         
+        // [Element; 3]
+        let messages: [Element; 3] = array::from_fn(|_| {
+            Element::new(RistrettoPoint::random(&mut rand::thread_rng()))
+        });
+
+        // ElementN<3>
+        let messages = ElementN::new(messages);
+
+        // ElGamalN<3>
+        let egs = messages.encrypt(&keypair);
+
+        // [u8; 192] = [u8; 32 * 3 * 2]
+        let bytes = egs.write();
+        // ElGamalN<3>
+        let parsed_egs = ElGamalN::parse(bytes);
+
+        // ElementN<3>
+        let decrypted: ElementN<3> = parsed_egs.decrypt(&keypair);
+
         // Check if the original and decrypted messages are equal
-        assert_eq!(message1.0, decrypted_message1.0);
-        assert_eq!(message2.0, decrypted_message2.0);
-        assert_eq!(message3.0, decrypted_message3.0);
+        // We are using the array version of zip_with because our version requires the return
+        // type's elements to implement Size
+        decrypted.0.0.iter().zip(messages.0.0.iter()).for_each(|(decrypted, original)| {
+            assert_eq!(decrypted.0, original.0);
+        });
+        
     }
 }
