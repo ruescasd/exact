@@ -121,7 +121,9 @@ impl Parseable<{ KeyPair::SIZE }> for KeyPair {
     }
 }
 
+// A product of ciphertexts
 type EGProductN_<const LEN: usize> = Product<LEN, ElGamal>;
+
 struct EGProductN<const LEN: usize>(pub EGProductN_<LEN>);
 impl<const LEN: usize> EGProductN<LEN> {
     fn new(list: [ElGamal; LEN]) -> Self {
@@ -206,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn test_product3() {
+    fn test_eg_product() {
         let keypair = KeyPair::new();
         let message1 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
         let message2 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
@@ -217,11 +219,10 @@ mod tests {
         let elgamal2 = keypair.encrypt(&message2);
         let elgamal3 = keypair.encrypt(&message3);
 
-        // Create a Product3 instance
-        // let product3 = Product3::new(elgamal1, elgamal2, elgamal3);
+        // Creates an elgamal product of size 3 (EGProductN<3>)
         let product3 = EGProductN::new([elgamal1, elgamal2, elgamal3]);
 
-        // Serialize and deserialize
+        // Serialization is type contrained to 192 bytes (EGProductN::<3>::SIZE)
         let bytes = product3.write();
         let parsed_product3 = EGProductN::parse(bytes);
 
@@ -234,25 +235,4 @@ mod tests {
         assert_eq!(message2.0, decrypted_message2.0);
         assert_eq!(message3.0, decrypted_message3.0);
     }
-}
-
-type Product3_ = Product<3, ElGamal>;
-struct Product3(Product3_);
-impl Product3 {
-    fn new(a: ElGamal, b: ElGamal, c: ElGamal) -> Self {
-        let list = Product([a, b, c]);
-        Product3(list)
-    }
-
-    fn parse(bytes: [u8; Self::SIZE]) -> Self {
-        let list = Product::<3, ElGamal>::parse(bytes);
-        Product3(list)
-    }
-
-    fn write(&self) -> [u8; Self::SIZE] {
-        self.0.write()
-    }
-}
-impl Size for Product3 {
-    const SIZE: usize = Product3_::SIZE;
 }
