@@ -251,6 +251,10 @@ mod tests {
         assert_eq!(message.0, decrypted_message.0);
     }
 
+    impl Size for bool {
+        const SIZE: usize = 1;
+    }
+
     #[test]
     fn test_eg_product() {
         let keypair = KeyPair::new();
@@ -274,12 +278,26 @@ mod tests {
         // ElementN<3>
         let decrypted: ElementN<3> = parsed_egs.decrypt(&keypair);
 
-        // Check if the original and decrypted messages are equal
-        // We are using the array version of zip_with because our version requires the return
-        // type's elements to implement Size
-        decrypted.0.0.iter().zip(messages.0.0.iter()).for_each(|(decrypted, original)| {
-            assert_eq!(decrypted.0, original.0);
+        // Product<3, bool>
+        // Check if each decrypted message matches the original message
+        let ok = decrypted.0.zip_with(&messages.0, |decrypted, original| {
+            decrypted.0 == original.0
         });
+
+        assert!(ok.0.iter().all(|x| *x), "All elements should match");
+
+        let keypair = KeyPair::new();
+
+        let decrypted: ElementN<3> = parsed_egs.decrypt(&keypair);
+
+        // Product<3, bool>
+        // Check if each decrypted message matches the original message
+        let ok = decrypted.0.zip_with(&messages.0, |decrypted, original| {
+            decrypted.0 == original.0
+        });
+
+        assert!(ok.0.iter().all(|x| !*x), "No elements should match");
+
         
     }
 }
