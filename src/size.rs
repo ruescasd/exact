@@ -9,21 +9,33 @@ pub trait Parseable<const LEN: usize>: Sized {
     fn write(&self) -> [u8; LEN];
 }
 
-pub struct Pa<T1, T2>
-where
-    T1: Size,
-    T2: Size,
+pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
+impl<const LEN: usize, T: Size + Parseable<{ T::SIZE }>> Parseable<{ T::SIZE * LEN} > for Product<LEN, T> 
 {
-    pub a: T1,
-    pub b: T2,
+    fn parse(bytes: [u8; T::SIZE * LEN]) -> Self {
+        // Convert to array by mapping chunks directly to T
+        let arr: [T; LEN] = std::array::from_fn(|i| {
+            let start = i * T::SIZE;
+            let end = start + T::SIZE;
+            let chunk = bytes[start..end].try_into().unwrap();
+            T::parse(chunk)
+        });
+        Product(arr)
+    }
+
+    fn write(&self) -> [u8; T::SIZE * LEN] {
+        let mut bytes = [0u8; T::SIZE * LEN];
+        for i in 0..LEN {
+            let start = i * T::SIZE;
+            let end = start + T::SIZE;
+            bytes[start..end].copy_from_slice(&self.0[i].write());
+        }
+        bytes
+    }
 }
-impl<T1, T2> Size for Pa<T1, T2>
-where
-    T1: Size,
-    T2: Size,
+impl<const LEN: usize, T: Size> Size for Product<LEN, T>
 {
-    // const SIZE: usize = T1::SIZE + T2::SIZE;
-    const SIZE: usize = T1::SIZE + T2::SIZE;
+    const SIZE: usize = LEN * T::SIZE;
 }
 
 #[derive(Debug)]
@@ -31,17 +43,15 @@ pub struct Pair<T1, T2>
 where
     T1: Size,
     T2: Size,
-    // [(); T1::SIZE + T2::SIZE]: Sized,
 {
-    pub a: T1,
-    pub b: T2,
+    pub fst: T1,
+    pub snd: T2,
 }
 
 impl<T1, T2> Size for Pair<T1, T2>
 where
     T1: Size,
     T2: Size,
-    // [(); T1::SIZE + T2::SIZE]: Sized,
 {
     const SIZE: usize = T1::SIZE + T2::SIZE;
 }
@@ -49,16 +59,8 @@ where
 // Pair<T1, T2> is Parseable with the length T1::SIZE + T2::SIZE
 impl<T1, T2> Parseable<{ T1::SIZE + T2::SIZE }> for Pair<T1, T2>
 where
-    // T1 and T2 must be Size (to get their ::SIZE for the const generic arg above)
-    // and also Parseable with their respective sizes.
     T1: Size + Parseable<{ T1::SIZE }>,
     T2: Size + Parseable<{ T2::SIZE }>,
-    // This bound is CRITICAL: it ensures that {T1::SIZE + T2::SIZE}
-    // is a valid const expression for an array length/const generic argument.
-    [(); T1::SIZE + T2::SIZE]: Sized,
-    // These bounds are needed for split_at and try_into to work with fixed array types.
-    [(); T1::SIZE]: Sized,
-    [(); T2::SIZE]: Sized,
 {
     // The trait's LEN parameter is {T1::SIZE + T2::SIZE} for this impl.
     fn parse(bytes: [u8; T1::SIZE + T2::SIZE]) -> Self {
@@ -71,8 +73,8 @@ where
         let field2_val = T2::parse(bytes_t2.try_into().expect("slice2 wrong len"));
 
         Pair {
-            a: field1_val,
-            b: field2_val,
+            fst: field1_val,
+            snd: field2_val,
         }
     }
 
@@ -81,8 +83,8 @@ where
         let (bytes_t1, rest) = bytes.split_at_mut(T1::SIZE);
         let (bytes_t2, _ /*empty_if_correct*/) = rest.split_at_mut(T2::SIZE);
 
-        bytes_t1.copy_from_slice(&self.a.write());
-        bytes_t2.copy_from_slice(&self.b.write());
+        bytes_t1.copy_from_slice(&self.fst.write());
+        bytes_t2.copy_from_slice(&self.snd.write());
 
         bytes
     }

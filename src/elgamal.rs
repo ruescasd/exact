@@ -1,4 +1,4 @@
-use crate::size::{Pair, Parseable, Size};
+use crate::size::{Product, Pair, Parseable, Size};
 use curve25519_dalek::{
     Scalar,
     ristretto::{CompressedRistretto, RistrettoPoint},
@@ -49,25 +49,28 @@ impl Parseable<{ Element::SIZE }> for Element {
 type ElGamal_ = Pair<Element, Element>;
 struct ElGamal(ElGamal_);
 impl ElGamal {
-    fn new(a: Element, b: Element) -> Self {
-        ElGamal(Pair { a, b })
-    }
-
-    fn parse(bytes: [u8; ElGamal_::SIZE]) -> Self {
-        let pair = Pair::parse(bytes);
-        ElGamal(pair)
-    }
-
-    fn write(&self) -> [u8; ElGamal_::SIZE] {
-        self.0.write()
+    fn new(gr: Element, mhr: Element) -> Self {
+        ElGamal(Pair { fst: gr, snd: mhr })
     }
 
     fn gr(&self) -> Element {
-        self.0.a.clone()
+        self.0.fst.clone()
     }
 
     fn mhr(&self) -> Element {
-        self.0.b.clone()
+        self.0.snd.clone()
+    }
+}
+impl Size for ElGamal {
+    const SIZE: usize = ElGamal_::SIZE;
+}
+impl Parseable<{ ElGamal::SIZE }> for ElGamal {
+    fn parse(bytes: [u8; ElGamal::SIZE]) -> Self {
+        let pair = Pair::parse(bytes);
+        ElGamal(pair)
+    }
+    fn write(&self) -> [u8; ElGamal::SIZE] {
+        self.0.write()
     }
 }
 
@@ -77,19 +80,10 @@ impl KeyPair {
     fn new() -> Self {
         let secret = Scalar::random(&mut rand::thread_rng());
         let pair = Pair {
-            a: Element::new(RistrettoPoint::mul_base(&secret)),
-            b: Exponent::new(secret),
+            fst: Element::new(RistrettoPoint::mul_base(&secret)),
+            snd: Exponent::new(secret),
         };
         KeyPair(pair)
-    }
-
-    fn parse(bytes: [u8; KeyPair_::SIZE]) -> Self {
-        let pair = Pair::parse(bytes);
-        KeyPair(pair)
-    }
-
-    fn write(&self) -> [u8; KeyPair_::SIZE] {
-        self.0.write()
     }
 
     fn encrypt(&self, message: &Element) -> ElGamal {
@@ -101,60 +95,53 @@ impl KeyPair {
     }
 
     fn decrypt(&self, elgamal: &ElGamal) -> Element {
-        let factor = elgamal.0.a.0 * self.skey().0;
-        let decrypted = elgamal.0.b.0 - factor;
+        let factor = elgamal.0.fst.0 * self.skey().0;
+        let decrypted = elgamal.0.snd.0 - factor;
         Element(decrypted)
     }
 
     fn pkey(&self) -> Element {
-        self.0.a.clone()
+        self.0.fst.clone()
     }
 
     fn skey(&self) -> Exponent {
-        self.0.b.clone()
+        self.0.snd.clone()
     }
 }
-
-
-struct NewType<const L: usize, T: Parseable<L>>(T);
-impl<const L: usize, T: Parseable<L>> Parseable<L> for NewType<L, T>
-where
-    T: Parseable<L>,
-{
-    fn parse(bytes: [u8; L]) -> Self {
-        NewType(T::parse(bytes))
-    }
-    fn write(&self) -> [u8; L] {
-        self.0.write()
-    }
+impl Size for KeyPair {
+    const SIZE: usize = KeyPair_::SIZE;
 }
-
-type ElG = NewType< {Pair::<Element, Element>::SIZE}, Pair<Element, Element>>;
-
-
-type Triple_ = Pair<Element, Pair<Element, Element>>;
-struct Triple(Triple_);
-
-impl Triple {
-    
-    fn new(a: Element, b: Element, c: Element) -> Self {
-        let pair = Pair {
-            a,
-            b: Pair { a: b, b: c },
-        };
-        Triple(pair)
-    }
-
-    fn parse(bytes: [u8; Triple_::SIZE]) -> Self {
+impl Parseable<{ KeyPair::SIZE }> for KeyPair {
+    fn parse(bytes: [u8; KeyPair::SIZE]) -> Self {
         let pair = Pair::parse(bytes);
-        Triple(pair)
+        KeyPair(pair)
     }
-
-    fn write(&self) -> [u8; Triple_::SIZE] {
+    fn write(&self) -> [u8; KeyPair::SIZE] {
         self.0.write()
     }
 }
 
+type EGProductN_<const LEN: usize> = Product<LEN, ElGamal>;
+struct EGProductN<const LEN: usize>(pub EGProductN_<LEN>);
+impl<const LEN: usize> EGProductN<LEN> {
+    fn new(list: [ElGamal; LEN]) -> Self {
+        EGProductN(Product(list))
+    }
+}
+impl<const LEN: usize> Size for EGProductN<LEN> {
+    const SIZE: usize = EGProductN_::<LEN>::SIZE;
+}
+impl<const LEN: usize> Parseable<{ Self::SIZE }> for EGProductN<LEN> 
+where Product<LEN, ElGamal>: Parseable<{ Self::SIZE }> 
+{
+     fn parse(bytes: [u8; Self::SIZE]) -> Self {
+        let list: Product<LEN, ElGamal> = Product::parse(bytes);
+        EGProductN(list)
+    }
+    fn write(&self) -> [u8; Self::SIZE] {
+        self.0.write()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -217,4 +204,55 @@ mod tests {
         // Check if the original and decrypted messages are equal
         assert_eq!(message.0, decrypted_message.0);
     }
+
+    #[test]
+    fn test_product3() {
+        let keypair = KeyPair::new();
+        let message1 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
+        let message2 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
+        let message3 = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
+
+        // Encrypt the messages
+        let elgamal1 = keypair.encrypt(&message1);
+        let elgamal2 = keypair.encrypt(&message2);
+        let elgamal3 = keypair.encrypt(&message3);
+
+        // Create a Product3 instance
+        // let product3 = Product3::new(elgamal1, elgamal2, elgamal3);
+        let product3 = EGProductN::new([elgamal1, elgamal2, elgamal3]);
+
+        // Serialize and deserialize
+        let bytes = product3.write();
+        let parsed_product3 = EGProductN::parse(bytes);
+
+        let decrypted_message1 = keypair.decrypt(&parsed_product3.0.0[0]);
+        let decrypted_message2 = keypair.decrypt(&parsed_product3.0.0[1]);
+        let decrypted_message3 = keypair.decrypt(&parsed_product3.0.0[2]);
+        
+        // Check if the original and decrypted messages are equal
+        assert_eq!(message1.0, decrypted_message1.0);
+        assert_eq!(message2.0, decrypted_message2.0);
+        assert_eq!(message3.0, decrypted_message3.0);
+    }
+}
+
+type Product3_ = Product<3, ElGamal>;
+struct Product3(Product3_);
+impl Product3 {
+    fn new(a: ElGamal, b: ElGamal, c: ElGamal) -> Self {
+        let list = Product([a, b, c]);
+        Product3(list)
+    }
+
+    fn parse(bytes: [u8; Self::SIZE]) -> Self {
+        let list = Product::<3, ElGamal>::parse(bytes);
+        Product3(list)
+    }
+
+    fn write(&self) -> [u8; Self::SIZE] {
+        self.0.write()
+    }
+}
+impl Size for Product3 {
+    const SIZE: usize = Product3_::SIZE;
 }
