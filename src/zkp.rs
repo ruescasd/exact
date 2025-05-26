@@ -6,7 +6,7 @@ use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::constants as dalek_constants;
 use rand::thread_rng; // For prove
-use sha3::{Digest, Sha512};
+use sha3::{Digest, Sha3_512}; // Changed Sha512 to Sha3_512
 
 
 // Internal structure for Proof, using Pair
@@ -57,13 +57,12 @@ pub fn prove(secret_x: &Exponent, public_y: &Element) -> Proof {
     let t_element = Element::new(t_point);
 
     // Challenge c = H(G_bytes, Y_bytes, t_bytes)
-    let mut hasher = Sha512::new();
+    let mut hasher = Sha3_512::new(); // Changed Sha512 to Sha3_512
     hasher.update(dalek_constants::RISTRETTO_BASEPOINT_COMPRESSED.to_bytes()); // G
     hasher.update(public_y.write_bytes()); // Y
     hasher.update(t_element.write_bytes()); // t
     
-    let hash_output = hasher.finalize();
-    let c_scalar = Scalar::from_hash::<Sha512>(hash_output);
+    let c_scalar = Scalar::from_hash::<Sha3_512>(hasher); // Changed Sha512 to Sha3_512 and removed finalize()
 
     // Response s = v + c*x
     let s_scalar = v_scalar + c_scalar * secret_x.0; // secret_x.0 to access inner Scalar
@@ -77,13 +76,12 @@ pub fn verify(public_y: &Element, proof: &Proof) -> bool {
     let s_exponent = proof.s();
 
     // Recompute challenge c = H(G_bytes, Y_bytes, t_bytes)
-    let mut hasher = Sha512::new();
+    let mut hasher = Sha3_512::new(); // Changed Sha512 to Sha3_512
     hasher.update(dalek_constants::RISTRETTO_BASEPOINT_COMPRESSED.to_bytes()); // G
     hasher.update(public_y.write_bytes()); // Y
     hasher.update(t_element.write_bytes()); // t
     
-    let hash_output = hasher.finalize();
-    let c_scalar = Scalar::from_hash::<Sha512>(hash_output);
+    let c_scalar = Scalar::from_hash::<Sha3_512>(hasher); // Changed Sha512 to Sha3_512 and removed finalize()
 
     // Check: G^s == t + Y^c
     // LHS: G^s
