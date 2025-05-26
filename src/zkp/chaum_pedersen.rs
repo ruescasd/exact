@@ -130,7 +130,7 @@ mod tests {
     use crate::arithmetic::{Element, Exponent};
     use crate::serialization::{FSerializable, Size};
     use curve25519_dalek::scalar::Scalar;
-    use curve25519_dalek::ristretto::RistrettoPoint;
+    // use curve25519_dalek::ristretto::RistrettoPoint; // Removed this line
     use curve25519_dalek::constants as dalek_constants; // For basepoint if needed
     use rand::thread_rng;
 
