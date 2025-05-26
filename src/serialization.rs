@@ -4,13 +4,13 @@ pub trait Size {
     const SIZE: usize;
 }
 
-pub trait Parseable<const LEN: usize>: Sized {
+pub trait FSerializable<const LEN: usize>: Sized {
     fn parse(bytes: [u8; LEN]) -> Self;
     fn write(&self) -> [u8; LEN];
 }
 
 pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
-impl<const LEN: usize, T: Size + Parseable<{ T::SIZE }>> Parseable<{ T::SIZE * LEN} > for Product<LEN, T> 
+impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::SIZE * LEN} > for Product<LEN, T> 
 {
     fn parse(bytes: [u8; T::SIZE * LEN]) -> Self {
         // Convert to array by mapping chunks directly to T
@@ -84,11 +84,11 @@ where
     const SIZE: usize = T1::SIZE + T2::SIZE;
 }
 
-// Pair<T1, T2> is Parseable with the length T1::SIZE + T2::SIZE
-impl<T1, T2> Parseable<{ T1::SIZE + T2::SIZE }> for Pair<T1, T2>
+// Pair<T1, T2> is FSerializable with the length T1::SIZE + T2::SIZE
+impl<T1, T2> FSerializable<{ T1::SIZE + T2::SIZE }> for Pair<T1, T2>
 where
-    T1: Size + Parseable<{ T1::SIZE }>,
-    T2: Size + Parseable<{ T2::SIZE }>,
+    T1: Size + FSerializable<{ T1::SIZE }>,
+    T2: Size + FSerializable<{ T2::SIZE }>,
 {
     // The trait's LEN parameter is {T1::SIZE + T2::SIZE} for this impl.
     fn parse(bytes: [u8; T1::SIZE + T2::SIZE]) -> Self {

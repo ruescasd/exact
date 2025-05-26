@@ -1,4 +1,4 @@
-use crate::size::{Product, Pair, Parseable, Size};
+use crate::serialization::{Product, Pair, FSerializable, Size};
 use curve25519_dalek::{
     Scalar,
     ristretto::{CompressedRistretto, RistrettoPoint},
@@ -14,7 +14,7 @@ impl Exponent {
 impl Size for Exponent {
     const SIZE: usize = 32; // Scalar is 32 bytes
 }
-impl Parseable<{ Exponent::SIZE }> for Exponent {
+impl FSerializable<{ Exponent::SIZE }> for Exponent {
     fn parse(bytes: [u8; Exponent::SIZE]) -> Self {
         let scalar = Scalar::from_canonical_bytes(bytes).unwrap();
         Exponent::new(scalar)
@@ -36,7 +36,7 @@ impl Size for Element {
     const SIZE: usize = 32; // RistrettoPoint is 32 bytes
 }
 
-impl Parseable<{ Element::SIZE }> for Element {
+impl FSerializable<{ Element::SIZE }> for Element {
     fn parse(bytes: [u8; Element::SIZE]) -> Self {
         let point = CompressedRistretto(bytes).decompress().unwrap();
         Element::new(point)
@@ -70,7 +70,7 @@ impl ElGamal {
 impl Size for ElGamal {
     const SIZE: usize = ElGamal_::SIZE;
 }
-impl Parseable<{ ElGamal::SIZE }> for ElGamal {
+impl FSerializable<{ ElGamal::SIZE }> for ElGamal {
     fn parse(bytes: [u8; ElGamal::SIZE]) -> Self {
         let pair = Pair::parse(bytes);
         ElGamal(pair)
@@ -118,7 +118,7 @@ impl KeyPair {
 impl Size for KeyPair {
     const SIZE: usize = KeyPair_::SIZE;
 }
-impl Parseable<{ KeyPair::SIZE }> for KeyPair {
+impl FSerializable<{ KeyPair::SIZE }> for KeyPair {
     fn parse(bytes: [u8; KeyPair::SIZE]) -> Self {
         let pair = Pair::parse(bytes);
         KeyPair(pair)
@@ -139,8 +139,8 @@ impl<const LEN: usize> ElementN<LEN> {
 impl<const LEN: usize> Size for ElementN<LEN> {
     const SIZE: usize = ElementN_::<LEN>::SIZE;
 }
-impl<const LEN: usize> Parseable<{ Self::SIZE }> for ElementN<LEN> 
-where Product<LEN, Element>: Parseable<{ Self::SIZE }> 
+impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ElementN<LEN> 
+where Product<LEN, Element>: FSerializable<{ Self::SIZE }> 
 {
      fn parse(bytes: [u8; Self::SIZE]) -> Self {
         let list: Product<LEN, Element> = Product::parse(bytes);
@@ -169,8 +169,8 @@ impl<const LEN: usize> ElGamalN<LEN> {
 impl<const LEN: usize> Size for ElGamalN<LEN> {
     const SIZE: usize = ElGamalN_::<LEN>::SIZE;
 }
-impl<const LEN: usize> Parseable<{ Self::SIZE }> for ElGamalN<LEN> 
-where Product<LEN, ElGamal>: Parseable<{ Self::SIZE }> 
+impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ElGamalN<LEN> 
+where Product<LEN, ElGamal>: FSerializable<{ Self::SIZE }> 
 {
      fn parse(bytes: [u8; Self::SIZE]) -> Self {
         let list: Product<LEN, ElGamal> = Product::parse(bytes);

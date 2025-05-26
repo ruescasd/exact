@@ -3,4 +3,4 @@
 #![allow(dead_code)]
 
 mod elgamal;
-mod size;
+mod serialization;
