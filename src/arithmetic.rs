@@ -1,5 +1,5 @@
 use curve25519_dalek::{Scalar, ristretto::{CompressedRistretto, RistrettoPoint}};
-use crate::serialization::{Size, FSerializable};
+use crate::serialization::{Size, FSerializable, Product}; // Product is already here
 
 #[derive(Debug, Clone)]
 pub struct Exponent(pub Scalar);
@@ -22,7 +22,7 @@ impl FSerializable<{ Exponent::SIZE }> for Exponent {
 }
 
 #[derive(Debug, Clone)]
-pub struct Element(pub RistrettoPoint);
+pub struct Element(pub RistrettoPoint); // Element is defined in this file
 impl Element {
     pub fn new(point: RistrettoPoint) -> Self {
         Element(point)
@@ -43,11 +43,71 @@ impl FSerializable<{ Element::SIZE }> for Element {
     }
 }
 
+// A product of Exponents
+type ExponentN_<const LEN: usize> = Product<LEN, Exponent>;
+
+#[derive(Debug, Clone)]
+pub struct ExponentN<const LEN: usize>(pub ExponentN_<LEN>);
+
+impl<const LEN: usize> ExponentN<LEN> {
+    // No new method for now
+}
+
+impl<const LEN: usize> Size for ExponentN<LEN> {
+    const SIZE: usize = ExponentN_::<LEN>::SIZE;
+}
+
+impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ExponentN<LEN> 
+where
+    Product<LEN, Exponent>: FSerializable<{ Self::SIZE }>,
+{
+    fn parse(bytes: [u8; Self::SIZE]) -> Self {
+        let product: Product<LEN, Exponent> = Product::parse(bytes);
+        ExponentN(product)
+    }
+    fn write(&self) -> [u8; Self::SIZE] {
+        self.0.write()
+    }
+}
+
+// === Appending ElementN definitions below ===
+
+// A product of Elements
+type ElementN_<const LEN: usize> = Product<LEN, Element>;
+
+#[derive(Debug, Clone)]
+pub struct ElementN<const LEN: usize>(pub ElementN_<LEN>); // Made pub
+
+impl<const LEN: usize> ElementN<LEN> {
+    pub fn new(list: [Element; LEN]) -> Self { // Made pub
+        ElementN(Product(list))
+    }
+    // Note: encrypt method is NOT moved here
+}
+
+impl<const LEN: usize> Size for ElementN<LEN> {
+    const SIZE: usize = ElementN_::<LEN>::SIZE;
+}
+
+impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ElementN<LEN> 
+where Product<LEN, Element>: FSerializable<{ Self::SIZE }> 
+{
+     fn parse(bytes: [u8; Self::SIZE]) -> Self {
+        let list: Product<LEN, Element> = Product::parse(bytes);
+        ElementN(list)
+    }
+    fn write(&self) -> [u8; Self::SIZE] {
+        self.0.write()
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
-    use super::*; // To access Element, Exponent from arithmetic.rs
-    use curve25519_dalek::{{Scalar, ristretto::RistrettoPoint}}; // For test setup
+    use super::*; // To access Element, Exponent, ExponentN, ElementN from arithmetic.rs
+    use curve25519_dalek::{{Scalar, ristretto::RistrettoPoint}}; // For test setup for existing tests
     use rand; // For random generation in tests
+    use std::array; // For std::array::from_fn
 
     #[test]
     fn test_element() {
@@ -74,5 +134,23 @@ mod tests {
 
         // Check if the original and parsed exponents are equal
         assert_eq!(exponent.0, parsed_exponent.0);
+    }
+
+    #[test]
+    fn test_exponent_n_serialization() {
+        const LEN: usize = 3;
+        let exponents_array: [Exponent; LEN] = std::array::from_fn(|_| {
+            Exponent::new(Scalar::random(&mut rand::thread_rng()))
+        });
+        let exponents_n = ExponentN(Product(exponents_array.clone())); // Clone for later comparison
+
+        let bytes = exponents_n.write();
+        assert_eq!(bytes.len(), ExponentN::<LEN>::SIZE);
+
+        let parsed_exponents_n = ExponentN::<LEN>::parse(bytes);
+
+        for i in 0..LEN {
+            assert_eq!(exponents_n.0.0[i].0, parsed_exponents_n.0.0[i].0);
+        }
     }
 }
