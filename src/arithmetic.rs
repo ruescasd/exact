@@ -46,7 +46,7 @@ impl FSerializable<{ Element::SIZE }> for Element {
 // A product of Exponents
 type ExponentN_<const LEN: usize> = Product<LEN, Exponent>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ExponentN<const LEN: usize>(pub ExponentN_<LEN>);
 
 impl<const LEN: usize> ExponentN<LEN> {
@@ -75,7 +75,7 @@ where
 // A product of Elements
 type ElementN_<const LEN: usize> = Product<LEN, Element>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ElementN<const LEN: usize>(pub ElementN_<LEN>); // Made pub
 
 impl<const LEN: usize> ElementN<LEN> {
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_exponent_n_serialization() {
         const LEN: usize = 3;
-        let exponents_array: [Exponent; LEN] = std::array::from_fn(|_| {
+        let exponents_array: [Exponent; LEN] = array::from_fn(|_| {
             Exponent::new(Scalar::random(&mut rand::thread_rng()))
         });
         let exponents_n = ExponentN(Product(exponents_array.clone())); // Clone for later comparison

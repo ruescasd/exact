@@ -19,7 +19,7 @@ pub trait Decryptable<P> {
 // --- End New Trait Definitions ---
 
 type ElGamal_ = Pair<Element, Element>;
-struct ElGamal(ElGamal_);
+pub struct ElGamal(ElGamal_);
 impl ElGamal {
     fn new(gr: Element, mhr: Element) -> Self {
         ElGamal(Pair { fst: gr, snd: mhr })
@@ -50,7 +50,7 @@ impl FSerializable<{ ElGamal::SIZE }> for ElGamal {
 }
 
 type KeyPair_ = Pair<Element, Exponent>;
-struct KeyPair(KeyPair_); // KeyPair is defined here, after trait definitions but that's fine.
+pub struct KeyPair(KeyPair_); // KeyPair is defined here, after trait definitions but that's fine.
 impl KeyPair {
     fn new() -> Self {
         let secret = Scalar::random(&mut rand::thread_rng());
@@ -111,7 +111,7 @@ impl Decryptable<crate::arithmetic::Element> for ElGamal {
 
 // --- Encryptable/Decryptable Trait Implementations for N-types ---
 
-impl<const LEN: usize> Encryptable<ElGamalN<LEN>> for crate::arithmetic::ElementN<LEN>
+impl<const LEN: usize> Encryptable<ElGamalN<LEN>> for ElementN<LEN>
 where
     crate::arithmetic::Element: Encryptable<ElGamal>, // Ensure single Element is Encryptable
 {
