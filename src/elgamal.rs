@@ -19,7 +19,7 @@ pub trait Decryptable<P> {
 // --- End New Trait Definitions ---
 
 type ElGamal_ = Pair<Element, Element>;
-pub struct ElGamal(ElGamal_);
+struct ElGamal(ElGamal_);
 impl ElGamal {
     fn new(gr: Element, mhr: Element) -> Self {
         ElGamal(Pair { fst: gr, snd: mhr })
@@ -40,17 +40,17 @@ impl Size for ElGamal {
     const SIZE: usize = ElGamal_::SIZE;
 }
 impl FSerializable<{ ElGamal::SIZE }> for ElGamal {
-    fn parse(bytes: [u8; ElGamal::SIZE]) -> Self {
-        let pair = Pair::parse(bytes);
+    fn read_bytes(bytes: [u8; ElGamal::SIZE]) -> Self {
+        let pair = Pair::read_bytes(bytes);
         ElGamal(pair)
     }
-    fn write(&self) -> [u8; ElGamal::SIZE] {
-        self.0.write()
+    fn write_bytes(&self) -> [u8; ElGamal::SIZE] {
+        self.0.write_bytes()
     }
 }
 
 type KeyPair_ = Pair<Element, Exponent>;
-pub struct KeyPair(KeyPair_); // KeyPair is defined here, after trait definitions but that's fine.
+struct KeyPair(KeyPair_); // KeyPair is defined here, after trait definitions but that's fine.
 impl KeyPair {
     fn new() -> Self {
         let secret = Scalar::random(&mut rand::thread_rng());
@@ -76,12 +76,12 @@ impl Size for KeyPair {
     const SIZE: usize = KeyPair_::SIZE;
 }
 impl FSerializable<{ KeyPair::SIZE }> for KeyPair {
-    fn parse(bytes: [u8; KeyPair::SIZE]) -> Self {
-        let pair = Pair::parse(bytes);
+    fn read_bytes(bytes: [u8; KeyPair::SIZE]) -> Self {
+        let pair = Pair::read_bytes(bytes);
         KeyPair(pair)
     }
-    fn write(&self) -> [u8; KeyPair::SIZE] {
-        self.0.write()
+    fn write_bytes(&self) -> [u8; KeyPair::SIZE] {
+        self.0.write_bytes()
     }
 }
 
@@ -111,7 +111,7 @@ impl Decryptable<crate::arithmetic::Element> for ElGamal {
 
 // --- Encryptable/Decryptable Trait Implementations for N-types ---
 
-impl<const LEN: usize> Encryptable<ElGamalN<LEN>> for ElementN<LEN>
+impl<const LEN: usize> Encryptable<ElGamalN<LEN>> for crate::arithmetic::ElementN<LEN>
 where
     crate::arithmetic::Element: Encryptable<ElGamal>, // Ensure single Element is Encryptable
 {
@@ -149,12 +149,12 @@ impl<const LEN: usize> Size for ElGamalN<LEN> {
 impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ElGamalN<LEN> 
 where Product<LEN, ElGamal>: FSerializable<{ Self::SIZE }> 
 {
-     fn parse(bytes: [u8; Self::SIZE]) -> Self {
-        let list: Product<LEN, ElGamal> = Product::parse(bytes);
+     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+        let list: Product<LEN, ElGamal> = Product::read_bytes(bytes);
         ElGamalN(list)
     }
-    fn write(&self) -> [u8; Self::SIZE] {
-        self.0.write()
+    fn write_bytes(&self) -> [u8; Self::SIZE] {
+        self.0.write_bytes()
     }
 }
 // Removed the separate impl block for ElGamalN that only contained decrypt
@@ -174,8 +174,8 @@ mod tests {
         let keypair = KeyPair::new();
 
         // Serialize and deserialize
-        let bytes = keypair.write();
-        let parsed_keypair = KeyPair::parse(bytes);
+        let bytes = keypair.write_bytes();
+        let parsed_keypair = KeyPair::read_bytes(bytes);
 
         // Check if the original and parsed keypairs are equal
         assert_eq!(keypair.pkey().0, parsed_keypair.pkey().0);
@@ -191,8 +191,8 @@ mod tests {
         let elgamal = message.encrypt(&keypair);
 
         // Serialize and deserialize
-        let bytes = elgamal.write();
-        let parsed_elgamal = ElGamal::parse(bytes);
+        let bytes = elgamal.write_bytes();
+        let parsed_elgamal = ElGamal::read_bytes(bytes);
 
         // Decrypt the message using trait method
         let decrypted_message = parsed_elgamal.decrypt(&keypair);
@@ -220,9 +220,9 @@ mod tests {
         let egs = messages.encrypt(&keypair);
 
         // [u8; 192] = [u8; 32 * 3 * 2]
-        let bytes = egs.write();
+        let bytes = egs.write_bytes();
         // ElGamalN<3>
-        let parsed_egs = ElGamalN::parse(bytes);
+        let parsed_egs = ElGamalN::read_bytes(bytes);
 
         // ElementN<3>
         let decrypted: ElementN<3> = parsed_egs.decrypt(&keypair);

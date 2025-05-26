@@ -12,11 +12,11 @@ impl Size for Exponent {
     const SIZE: usize = 32; // Scalar is 32 bytes
 }
 impl FSerializable<{ Exponent::SIZE }> for Exponent {
-    fn parse(bytes: [u8; Exponent::SIZE]) -> Self {
+    fn read_bytes(bytes: [u8; Exponent::SIZE]) -> Self {
         let scalar = Scalar::from_canonical_bytes(bytes).unwrap();
         Exponent::new(scalar)
     }
-    fn write(&self) -> [u8; Exponent::SIZE] {
+    fn write_bytes(&self) -> [u8; Exponent::SIZE] {
         self.0.to_bytes()
     }
 }
@@ -34,11 +34,11 @@ impl Size for Element {
 }
 
 impl FSerializable<{ Element::SIZE }> for Element {
-    fn parse(bytes: [u8; Element::SIZE]) -> Self {
+    fn read_bytes(bytes: [u8; Element::SIZE]) -> Self {
         let point = CompressedRistretto(bytes).decompress().unwrap();
         Element::new(point)
     }
-    fn write(&self) -> [u8; Element::SIZE] {
+    fn write_bytes(&self) -> [u8; Element::SIZE] {
         self.0.compress().to_bytes()
     }
 }
@@ -61,12 +61,12 @@ impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ExponentN<LEN>
 where
     Product<LEN, Exponent>: FSerializable<{ Self::SIZE }>,
 {
-    fn parse(bytes: [u8; Self::SIZE]) -> Self {
-        let product: Product<LEN, Exponent> = Product::parse(bytes);
+    fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+        let product: Product<LEN, Exponent> = Product::read_bytes(bytes);
         ExponentN(product)
     }
-    fn write(&self) -> [u8; Self::SIZE] {
-        self.0.write()
+    fn write_bytes(&self) -> [u8; Self::SIZE] {
+        self.0.write_bytes()
     }
 }
 
@@ -92,12 +92,12 @@ impl<const LEN: usize> Size for ElementN<LEN> {
 impl<const LEN: usize> FSerializable<{ Self::SIZE }> for ElementN<LEN> 
 where Product<LEN, Element>: FSerializable<{ Self::SIZE }> 
 {
-     fn parse(bytes: [u8; Self::SIZE]) -> Self {
-        let list: Product<LEN, Element> = Product::parse(bytes);
+     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+        let list: Product<LEN, Element> = Product::read_bytes(bytes);
         ElementN(list)
     }
-    fn write(&self) -> [u8; Self::SIZE] {
-        self.0.write()
+    fn write_bytes(&self) -> [u8; Self::SIZE] {
+        self.0.write_bytes()
     }
 }
 
@@ -116,8 +116,8 @@ mod tests {
         let element = Element::new(point);
 
         // Serialize and deserialize
-        let bytes = element.write();
-        let parsed_element = Element::parse(bytes);
+        let bytes = element.write_bytes();
+        let parsed_element = Element::read_bytes(bytes);
 
         // Check if the original and parsed elements are equal
         assert_eq!(element.0.compress(), parsed_element.0.compress());
@@ -129,8 +129,8 @@ mod tests {
         let exponent = Exponent::new(scalar);
 
         // Serialize and deserialize
-        let bytes = exponent.write();
-        let parsed_exponent = Exponent::parse(bytes);
+        let bytes = exponent.write_bytes();
+        let parsed_exponent = Exponent::read_bytes(bytes);
 
         // Check if the original and parsed exponents are equal
         assert_eq!(exponent.0, parsed_exponent.0);
@@ -139,15 +139,15 @@ mod tests {
     #[test]
     fn test_exponent_n_serialization() {
         const LEN: usize = 3;
-        let exponents_array: [Exponent; LEN] = array::from_fn(|_| {
+        let exponents_array: [Exponent; LEN] = std::array::from_fn(|_| {
             Exponent::new(Scalar::random(&mut rand::thread_rng()))
         });
         let exponents_n = ExponentN(Product(exponents_array.clone())); // Clone for later comparison
 
-        let bytes = exponents_n.write();
+        let bytes = exponents_n.write_bytes();
         assert_eq!(bytes.len(), ExponentN::<LEN>::SIZE);
 
-        let parsed_exponents_n = ExponentN::<LEN>::parse(bytes);
+        let parsed_exponents_n = ExponentN::<LEN>::read_bytes(bytes);
 
         for i in 0..LEN {
             assert_eq!(exponents_n.0.0[i].0, parsed_exponents_n.0.0[i].0);

@@ -5,31 +5,30 @@ pub trait Size {
 }
 
 pub trait FSerializable<const LEN: usize>: Sized {
-    fn parse(bytes: [u8; LEN]) -> Self;
-    fn write(&self) -> [u8; LEN];
+    fn read_bytes(bytes: [u8; LEN]) -> Self;
+    fn write_bytes(&self) -> [u8; LEN];
 }
 
-#[derive(Debug)]
-pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
+#[derive(Debug)] pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
 impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::SIZE * LEN} > for Product<LEN, T> 
 {
-    fn parse(bytes: [u8; T::SIZE * LEN]) -> Self {
+    fn read_bytes(bytes: [u8; T::SIZE * LEN]) -> Self {
         // Convert to array by mapping chunks directly to T
         let arr: [T; LEN] = std::array::from_fn(|i| {
             let start = i * T::SIZE;
             let end = start + T::SIZE;
             let chunk = bytes[start..end].try_into().unwrap();
-            T::parse(chunk)
+            T::read_bytes(chunk)
         });
         Product(arr)
     }
 
-    fn write(&self) -> [u8; T::SIZE * LEN] {
+    fn write_bytes(&self) -> [u8; T::SIZE * LEN] {
         let mut bytes = [0u8; T::SIZE * LEN];
         for i in 0..LEN {
             let start = i * T::SIZE;
             let end = start + T::SIZE;
-            bytes[start..end].copy_from_slice(&self.0[i].write());
+            bytes[start..end].copy_from_slice(&self.0[i].write_bytes());
         }
         bytes
     }
@@ -92,14 +91,14 @@ where
     T2: Size + FSerializable<{ T2::SIZE }>,
 {
     // The trait's LEN parameter is {T1::SIZE + T2::SIZE} for this impl.
-    fn parse(bytes: [u8; T1::SIZE + T2::SIZE]) -> Self {
+    fn read_bytes(bytes: [u8; T1::SIZE + T2::SIZE]) -> Self {
         let (bytes_t1, rest) = bytes.split_at(T1::SIZE);
         let (bytes_t2, _ /*empty_if_correct*/) = rest.split_at(T2::SIZE);
 
-        // Call parse for T1, which expects [u8; T1::SIZE]
-        let field1_val = T1::parse(bytes_t1.try_into().expect("slice1 wrong len"));
-        // Call parse for T2, which expects [u8; T2::SIZE]
-        let field2_val = T2::parse(bytes_t2.try_into().expect("slice2 wrong len"));
+        // Call read_bytes for T1, which expects [u8; T1::SIZE]
+        let field1_val = T1::read_bytes(bytes_t1.try_into().expect("slice1 wrong len"));
+        // Call read_bytes for T2, which expects [u8; T2::SIZE]
+        let field2_val = T2::read_bytes(bytes_t2.try_into().expect("slice2 wrong len"));
 
         Pair {
             fst: field1_val,
@@ -107,13 +106,13 @@ where
         }
     }
 
-    fn write(&self) -> [u8; T1::SIZE + T2::SIZE] {
+    fn write_bytes(&self) -> [u8; T1::SIZE + T2::SIZE] {
         let mut bytes = [0u8; T1::SIZE + T2::SIZE];
         let (bytes_t1, rest) = bytes.split_at_mut(T1::SIZE);
         let (bytes_t2, _ /*empty_if_correct*/) = rest.split_at_mut(T2::SIZE);
 
-        bytes_t1.copy_from_slice(&self.fst.write());
-        bytes_t2.copy_from_slice(&self.snd.write());
+        bytes_t1.copy_from_slice(&self.fst.write_bytes());
+        bytes_t2.copy_from_slice(&self.snd.write_bytes());
 
         bytes
     }
