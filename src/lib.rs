@@ -2,5 +2,6 @@
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 
+pub mod arithmetic;
 mod elgamal;
 mod serialization;

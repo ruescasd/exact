@@ -1,28 +1,33 @@
-# Exact: ElGamal Encryption in Rust
+# Exact: A Rust Library for Fixed-Size ElGamal Encryption
 
 This project provides a Rust implementation of the ElGamal encryption scheme. It focuses on type safety and explicit sizing of cryptographic elements, allowing for serialization and deserialization of keys and ciphertexts.
 
 ## Overview
 
-The ElGamal encryption scheme is an asymmetric key encryption algorithm for public-key cryptography which is based on the Diffie–Hellman key exchange. This implementation uses elliptic curve cryptography, specifically the Ristretto group over Curve25519, provided by the `curve25519-dalek` library.
+This library provides an implementation of the ElGamal encryption scheme using elliptic curve cryptography (specifically the Ristretto group over Curve25519 via `curve25519-dalek`). A key feature is its emphasis on **fixed-size serialization**: all cryptographic types have a constant, compile-time known byte length. This approach enhances safety, predictability, and performance by ensuring that keys, ciphertexts, and other structures are handled with precise byte representations, reducing parsing ambiguities and potential vulnerabilities associated with variable-length inputs. The core scheme is based on the Diffie–Hellman key exchange.
 
 ## Key Modules
 
 The library is organized into the following main modules:
 
-*   **`src/elgamal.rs`**: Contains the core ElGamal encryption logic.
-    *   Defines `Exponent` (a scalar value on the curve) and `Element` (a Ristretto point on the curve) types.
-    *   Implements `KeyPair` generation (public and private keys).
-    *   Provides functions for encrypting and decrypting individual `Element`s.
-    *   Supports batch operations for encrypting and decrypting arrays of `Element`s (via `ElementN` and `ElGamalN` types).
-    *   Includes comprehensive unit tests to verify the correctness of cryptographic operations and serialization.
+*   **`src/arithmetic.rs`**: Defines fundamental cryptographic arithmetic types.
+    *   Includes `Element` (a Ristretto point) and `Exponent` (a scalar value).
+    *   Also provides product types `ElementN` (a fixed-size array of `Element`s) and `ExponentN` (a fixed-size array of `Exponent`s).
+    *   These types implement the `FSerializable` and `Size` traits for fixed-size byte representation, defined in this module.
 
-*   **`src/size.rs`**: Provides traits and generic data structures for handling the serialization and deserialization of cryptographic types.
-    *   The `Size` trait defines a `SIZE` constant for types, indicating their fixed byte length.
-    *   The `Parseable` trait defines `parse` (from bytes) and `write` (to bytes) methods.
-    *   Generic structures `Product<LEN, T>` (for fixed-size arrays) and `Pair<T1, T2>` (for pairs of elements) implement `Size` and `Parseable`, enabling structured data handling.
+*   **`src/serialization.rs`**: Provides the traits and generic structures for fixed-size serialization.
+    *   Defines the `Size` trait, indicating a type's compile-time known byte length.
+    *   Defines the `FSerializable` trait with `read_bytes` and `write_bytes` methods for conversion to/from byte arrays.
+    *   Includes generic structures `Product<LEN, T>` (for fixed-size arrays) and `Pair<T1, T2>` (for pairs of elements), which implement `Size` and `FSerializable`.
 
-*   **`src/lib.rs`**: The main library crate file. It declares the `elgamal` and `size` modules and enables specific Rust features like `generic_const_exprs` for advanced type-level computation of sizes.
+*   **`src/elgamal.rs`**: Contains the core ElGamal encryption scheme logic.
+    *   Defines `KeyPair` (public and private keys) and `ElGamal` (ciphertext structure for a single element).
+    *   Defines `ElGamalN` (ciphertext structure for an array of elements).
+    *   Provides the `Encryptable` and `Decryptable` traits, which define a uniform `encrypt` and `decrypt` API.
+    *   Implements these traits for `Element`/`ElGamal` and `ElementN`/`ElGamalN` pairs, utilizing `KeyPair`.
+    *   All cryptographic structures like `KeyPair`, `ElGamal`, and `ElGamalN` also implement `FSerializable` and `Size`.
+
+*   **`src/lib.rs`**: The main library crate file. It declares and exports the `arithmetic`, `serialization`, and `elgamal` modules. It also enables specific Rust features like `generic_const_exprs` for advanced type-level computation of sizes.
 
 ## Dependencies
 
@@ -48,3 +53,18 @@ cargo test
 ```
 
 This will verify the correctness of the ElGamal implementation, including key generation, encryption, decryption, and serialization/deserialization logic.
+
+**Note on Compiler Version:** This project uses Rust Edition 2024 and features like `generic_const_exprs` which require a nightly Rust compiler. Please ensure you have a nightly toolchain active (e.g., via `rustup override set nightly` in your project directory or by prefixing commands with `cargo +nightly`) to successfully build and test this crate.
+
+## Design Philosophy and Key Features
+
+This library is designed with the following principles and features in mind:
+
+*   **Type Safety:** Leveraging Rust's strong type system to ensure correctness and prevent errors at compile time where possible.
+*   **Fixed-Size Serialization:** All core cryptographic types implement the `FSerializable` and `Size` traits, ensuring they have a constant, compile-time known byte length. This approach enhances safety by reducing parsing ambiguities, improves performance, and provides predictability when handling cryptographic data.
+*   **Compile-Time Size Calculations:** Utilizes `generic_const_exprs` to work with type sizes at compile time, reinforcing the fixed-size nature of data structures.
+*   **Clear Module Separation:** The codebase is organized into distinct modules with clear responsibilities:
+    *   `arithmetic`: Fundamental cryptographic types (`Element`, `Exponent`, and their product versions).
+    *   `serialization`: Traits (`FSerializable`, `Size`) and generic structures (`Product`, `Pair`) for byte representation.
+    *   `elgamal`: The ElGamal encryption scheme logic, key management, and ciphertext structures.
+*   **Trait-Based API for Cryptography:** Encryption and decryption operations are exposed via the `Encryptable` and `Decryptable` traits, providing a uniform and extensible interface for cryptographic operations.
