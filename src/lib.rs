@@ -5,3 +5,4 @@
 pub mod arithmetic;
 mod elgamal;
 mod serialization;
+pub mod zkp;
