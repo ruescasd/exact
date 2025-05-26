@@ -3,6 +3,6 @@
 #![allow(dead_code)]
 
 pub mod arithmetic;
-mod elgamal;
-mod serialization;
+mod elgamal; // elgamal remains private for now as per current structure, might need to be pub later
+pub mod serialization; // Made public
 pub mod zkp;
