@@ -24,12 +24,12 @@ impl Proof {
     }
 
     /// Returns the commitment 't' of the proof.
-    pub fn t(&self) -> Element {
+    pub fn commitment(&self) -> Element {
         self.0.fst.clone()
     }
 
     /// Returns the response 's' of the proof.
-    pub fn s(&self) -> Exponent {
+    pub fn response(&self) -> Exponent {
         self.0.snd.clone()
     }
 }
@@ -72,8 +72,8 @@ pub fn prove(secret_x: &Exponent, public_y: &Element) -> Proof {
 }
 
 pub fn verify(public_y: &Element, proof: &Proof) -> bool {
-    let t_element = proof.t();
-    let s_exponent = proof.s();
+    let t_element = proof.commitment();
+    let s_exponent = proof.response();
 
     // Recompute challenge c = H(G_bytes, Y_bytes, t_bytes)
     let mut hasher = Sha3_512::new(); // Changed Sha512 to Sha3_512
@@ -137,8 +137,8 @@ mod tests {
         assert!(verify(&public_y, &parsed_proof), "Verification of a parsed valid proof should succeed");
         // Optionally, compare fields if Proof derives PartialEq (it doesn't currently)
         // For now, re-verification is a good check.
-        assert_eq!(proof.t().write_bytes(), parsed_proof.t().write_bytes());
-        assert_eq!(proof.s().write_bytes(), parsed_proof.s().write_bytes());
+        assert_eq!(proof.commitment().write_bytes(), parsed_proof.commitment().write_bytes());
+        assert_eq!(proof.response().write_bytes(), parsed_proof.response().write_bytes());
     }
 
     #[test]
@@ -153,11 +153,11 @@ mod tests {
         let proof = prove(&secret_x, &public_y);
 
         // Tamper with s
-        let original_s_scalar = proof.s().0; // Access inner Scalar
+        let original_s_scalar = proof.response().0; // Access inner Scalar
         let tampered_s_scalar = original_s_scalar + Scalar::ONE; // Add one to make it different
         let tampered_s_exponent = Exponent::new(tampered_s_scalar);
         
-        let tampered_proof = Proof::new(proof.t(), tampered_s_exponent);
+        let tampered_proof = Proof::new(proof.commitment(), tampered_s_exponent);
 
         assert!(!verify(&public_y, &tampered_proof), "Verification of a proof with tampered 's' should fail");
     }
