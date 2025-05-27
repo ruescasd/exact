@@ -40,7 +40,7 @@ impl Size for RistrettoElement {
     const SIZE: usize = 32; // CompressedRistretto is 32 bytes
 }
 
-impl FSerializable for RistrettoElement {
+impl FSerializable<{Self::SIZE}> for RistrettoElement {
     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
         // Old Element::parse used CompressedRistretto(bytes).decompress().unwrap()
         // This can panic if bytes are not a valid point.

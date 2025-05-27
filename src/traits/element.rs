@@ -7,7 +7,7 @@ use core::fmt::Debug; // For Debug trait
 // For now, FSerializable handles byte conversion errors implicitly via read_bytes
 
 pub trait GroupElement:
-    FSerializable + Size + Clone + Debug + PartialEq + Sized // Added Sized
+    Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
 {
     // Associated type for the scalar field of this group element
     type Scalar: GroupScalar;
@@ -43,7 +43,7 @@ impl<G: CryptoGroup, const LEN: usize> Size for ElementN<G, LEN> {
     const SIZE: usize = Product::<LEN, G::Element>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable for ElementN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ElementN<G, LEN> {
     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
         ElementN(Product::<LEN, G::Element>::read_bytes(bytes))
     }

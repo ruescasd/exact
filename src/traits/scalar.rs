@@ -7,7 +7,7 @@ use rand::RngCore; // For random number generation
 // For now, from_bytes might return a Result or Option, inversion will return Option
 
 pub trait GroupScalar:
-    FSerializable + Size + Clone + Debug + PartialEq + Sized // Added Sized for Self in return types
+    Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
 {
     // Error type for operations that can fail, e.g. from_bytes
     // type Error; // Consider defining a common error type later
@@ -51,7 +51,7 @@ impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> {
     const SIZE: usize = Product::<LEN, G::Scalar>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable for ExponentN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ExponentN<G, LEN> {
     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
         ExponentN(Product::<LEN, G::Scalar>::read_bytes(bytes))
     }

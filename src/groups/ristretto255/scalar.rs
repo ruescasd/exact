@@ -1,7 +1,7 @@
 use crate::serialization::{FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
-use digest::Digest;
+use digest::Digest; // This line is already present
 use rand::RngCore; // For random generation
 
 #[derive(Clone, Debug, PartialEq)] // Added PartialEq
@@ -67,7 +67,7 @@ impl Size for RistrettoScalar {
     const SIZE: usize = 32; // Dalek Scalar is 32 bytes
 }
 
-impl FSerializable for RistrettoScalar {
+impl FSerializable<{Self::SIZE}> for RistrettoScalar {
     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
         // The old Exponent::parse used Scalar::from_canonical_bytes(bytes).unwrap()
         // This is a good place to ensure robust error handling if from_canonical_bytes can fail.

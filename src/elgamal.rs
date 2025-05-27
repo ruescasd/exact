@@ -1,10 +1,9 @@
 use crate::serialization::{Product, Pair, FSerializable, Size};
-use crate::arithmetic::{Element, Exponent, ElementN}; // Added ElementN
-use curve25519_dalek::{ // CompressedRistretto removed
-    Scalar,
-    ristretto::RistrettoPoint,
-};
-use rand; // Added for Scalar::random
+use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
+use crate::traits::{ElementN, ExponentN}; // Assuming ExponentN might be needed for future consistency
+use curve25519_dalek::ristretto::RistrettoPoint; // Still needed for tests if using RistrettoPoint::random
+// curve25519_dalek::Scalar might be unused now at top level
+use rand;
 
 // Exponent and Element structs and their impls were removed from here
 
@@ -18,18 +17,18 @@ pub trait Decryptable<P> {
 }
 // --- End New Trait Definitions ---
 
-type ElGamal_ = Pair<Element, Element>;
+type ElGamal_ = Pair<RistrettoElement, RistrettoElement>;
 pub struct ElGamal(ElGamal_); // Made pub
 impl ElGamal {
-    fn new(gr: Element, mhr: Element) -> Self {
+    pub fn new(gr: RistrettoElement, mhr: RistrettoElement) -> Self { // Updated types
         ElGamal(Pair { fst: gr, snd: mhr })
     }
 
-    fn gr(&self) -> Element {
+    pub fn gr(&self) -> RistrettoElement { // Updated type
         self.0.fst.clone()
     }
 
-    fn mhr(&self) -> Element {
+    pub fn mhr(&self) -> RistrettoElement { // Updated type
         self.0.snd.clone()
     }
 
@@ -49,14 +48,16 @@ impl FSerializable<{ ElGamal::SIZE }> for ElGamal {
     }
 }
 
-type KeyPair_ = Pair<Element, Exponent>;
+type KeyPair_ = Pair<RistrettoElement, RistrettoScalar>;
 pub struct KeyPair(KeyPair_); // Made pub. KeyPair is defined here, after trait definitions but that's fine.
 impl KeyPair {
-    fn new() -> Self {
-        let secret = Scalar::random(&mut rand::thread_rng());
+    pub fn new() -> Self { // Updated implementation
+        let mut rng = rand::thread_rng();
+        let secret_scalar = RistrettoScalar::random(&mut rng);
+        let public_element = Ristretto255Group::generator().scalar_mul(&secret_scalar);
         let pair = Pair {
-            fst: Element::new(RistrettoPoint::mul_base(&secret)),
-            snd: Exponent::new(secret),
+            fst: public_element,
+            snd: secret_scalar,
         };
         KeyPair(pair)
     }
@@ -64,11 +65,11 @@ impl KeyPair {
     // Old KeyPair::encrypt method removed.
     // Old KeyPair::decrypt method removed.
 
-    fn pkey(&self) -> Element {
+    pub fn pkey(&self) -> RistrettoElement { // Updated type
         self.0.fst.clone()
     }
 
-    fn skey(&self) -> Exponent {
+    pub fn skey(&self) -> RistrettoScalar { // Updated type
         self.0.snd.clone()
     }
 }
@@ -87,22 +88,25 @@ impl FSerializable<{ KeyPair::SIZE }> for KeyPair {
 
 // --- Encryptable/Decryptable Trait Implementations ---
 
-impl Encryptable<ElGamal> for crate::arithmetic::Element {
+impl Encryptable<ElGamal> for RistrettoElement { // Updated type
     fn encrypt(&self, key: &KeyPair) -> ElGamal {
-        // 'self' in this context is the Element (message). 'key' is the KeyPair.
-        let r = Scalar::random(&mut rand::thread_rng());
-        let gr = RistrettoPoint::mul_base(&r);
-        let mhr = self.0 + (key.pkey().0 * r); 
-        ElGamal::new(crate::arithmetic::Element::new(gr), crate::arithmetic::Element::new(mhr))
+        let mut rng = rand::thread_rng();
+        let r_scalar = RistrettoScalar::random(&mut rng);
+        
+        let gr = Ristretto255Group::generator().scalar_mul(&r_scalar);
+        
+        let mhr_point = self.0 + (key.pkey().0 * r_scalar.0);
+        let mhr = RistrettoElement::new(mhr_point);
+        
+        ElGamal::new(gr, mhr)
     }
 }
 
-impl Decryptable<crate::arithmetic::Element> for ElGamal {
-    fn decrypt(&self, key: &KeyPair) -> crate::arithmetic::Element {
-        // 'self' here is the ElGamal ciphertext. 'key' is the KeyPair.
+impl Decryptable<RistrettoElement> for ElGamal { // Updated type
+    fn decrypt(&self, key: &KeyPair) -> RistrettoElement { // Updated type
         let factor = self.gr().0 * key.skey().0; 
         let decrypted_point = self.mhr().0 - factor;
-        crate::arithmetic::Element::new(decrypted_point)
+        RistrettoElement::new(decrypted_point) // Updated type
     }
 }
 // --- End Trait Implementations ---
@@ -111,9 +115,9 @@ impl Decryptable<crate::arithmetic::Element> for ElGamal {
 
 // --- Encryptable/Decryptable Trait Implementations for N-types ---
 
-impl<const LEN: usize> Encryptable<ElGamalN<LEN>> for ElementN<LEN> // Changed crate::arithmetic::ElementN to ElementN
+impl<const LEN: usize> Encryptable<ElGamalN<LEN>> for ElementN<Ristretto255Group, LEN> // Updated type
 where
-    crate::arithmetic::Element: Encryptable<ElGamal>, // Ensure single Element is Encryptable
+    RistrettoElement: Encryptable<ElGamal>, // Updated type
 {
     fn encrypt(&self, key: &KeyPair) -> ElGamalN<LEN> {
         let encrypted_product = self.0.map(|element| element.encrypt(key));
@@ -121,13 +125,14 @@ where
     }
 }
 
-impl<const LEN: usize> Decryptable<crate::arithmetic::ElementN<LEN>> for ElGamalN<LEN>
+impl<const LEN: usize> Decryptable<ElementN<Ristretto255Group, LEN>> for ElGamalN<LEN> // Updated type
 where
-    ElGamal: Decryptable<crate::arithmetic::Element>, // Ensure single ElGamal is Decryptable
+    ElGamal: Decryptable<RistrettoElement>, // Updated type
 {
-    fn decrypt(&self, key: &KeyPair) -> crate::arithmetic::ElementN<LEN> {
+    fn decrypt(&self, key: &KeyPair) -> ElementN<Ristretto255Group, LEN> { // Updated type
         let decrypted_product = self.0.map(|elgamal| elgamal.decrypt(key));
-        crate::arithmetic::ElementN(decrypted_product)
+        // Constructing the generic ElementN explicitly with its group type
+        ElementN::<Ristretto255Group, LEN>::new(decrypted_product)
     }
 }
 
@@ -163,7 +168,9 @@ where Product<LEN, ElGamal>: FSerializable<{ Self::SIZE }>
 mod tests {
     use std::array;
 
-    use super::*;
+    use super::*; // This now brings in RistrettoElement, RistrettoScalar etc.
+    // No need to import Element, Exponent, ElementN from crate::arithmetic anymore
+
     // test_element and test_exponent removed.
     // curve25519_dalek::scalar::Scalar import removed as it's no longer directly used by remaining tests.
     // Usages of Scalar and RistrettoPoint in KeyPair::new, etc., rely on the parent module's imports.
@@ -185,7 +192,8 @@ mod tests {
     #[test]
     fn test_elgamal() {
         let keypair = KeyPair::new();
-        let message = Element::new(RistrettoPoint::random(&mut rand::thread_rng()));
+        // Updated to use RistrettoElement and dalek's RistrettoPoint for random generation
+        let message = RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(&mut rand::thread_rng()));
 
         // Encrypt the message using trait method
         let elgamal = message.encrypt(&keypair);
@@ -208,13 +216,14 @@ mod tests {
     fn test_eg_product() {
         let keypair = KeyPair::new();
         
-        // [Element; 3]
-        let messages: [Element; 3] = array::from_fn(|_| {
-            Element::new(RistrettoPoint::random(&mut rand::thread_rng()))
+        // [RistrettoElement; 3]
+        let messages_array: [RistrettoElement; 3] = array::from_fn(|_| {
+            RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(&mut rand::thread_rng()))
         });
 
-        // ElementN<3>
-        let messages = ElementN::new(messages);
+        // ElementN<Ristretto255Group, 3>
+        let messages = ElementN::<Ristretto255Group, 3>::new(Product(messages_array));
+
 
         // ElGamalN<3>
         let egs = messages.encrypt(&keypair);
