@@ -2,7 +2,14 @@
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 
-pub mod arithmetic;
-mod elgamal; // elgamal remains private for now as per current structure, might need to be pub later
-pub mod serialization; // Made public
-pub mod zkp;
+// Core Abstractions & Utilities
+pub mod traits;
+pub mod serialization; // Was already pub
+pub mod utils;
+
+// Concrete Implementations & Schemes
+pub mod groups;
+pub mod elgamal; // Changed from private to pub
+pub mod zkp; // Was already pub
+
+// pub mod arithmetic; // Correctly remains removed/commented

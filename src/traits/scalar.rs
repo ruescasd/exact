@@ -1,4 +1,5 @@
-use crate::serialization::{FSerializable, Size};
+use crate::serialization::{FSerializable, Size, Product}; // Added Product
+use crate::traits::group::CryptoGroup; // For G: CryptoGroup bound
 use core::fmt::Debug; // For Debug trait
 use rand::RngCore; // For random number generation
 
@@ -29,4 +30,33 @@ pub trait GroupScalar:
     // but could be part of a CryptoGroup trait's requirements for its associated Scalar type
     // or a method here if it's truly generic (e.g. from_bytes_mod_order_wide).
     // For now, stick to FSerializable for byte conversions.
+}
+
+// --- Generic ExponentN struct and implementations ---
+
+#[derive(Debug, Clone, PartialEq)] // Assuming G::Scalar is PartialEq
+pub struct ExponentN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Scalar>);
+// Note: G::Scalar already requires FSerializable, Size, Clone, Debug, PartialEq via GroupScalar
+
+impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN> {
+    /// Creates a new ExponentN from a Product of group scalars.
+    pub fn new(product: Product<LEN, G::Scalar>) -> Self {
+        ExponentN(product)
+    }
+    // Add other methods if ExponentN had them
+    // pub fn inner(&self) -> &Product<LEN, G::Scalar> { &self.0 }
+}
+
+impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> {
+    const SIZE: usize = Product::<LEN, G::Scalar>::SIZE;
+}
+
+impl<G: CryptoGroup, const LEN: usize> FSerializable for ExponentN<G, LEN> {
+    fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+        ExponentN(Product::<LEN, G::Scalar>::read_bytes(bytes))
+    }
+
+    fn write_bytes(&self) -> [u8; Self::SIZE] {
+        self.0.write_bytes()
+    }
 }
