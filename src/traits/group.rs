@@ -2,7 +2,7 @@ use crate::traits::element::GroupElement;
 use crate::traits::scalar::GroupScalar;
 // No need for FSerializable or Size here directly, they are on Element/Scalar
 
-pub trait CryptoGroup: Sized { // Added Sized for Self in return types if any, good practice
+pub trait CryptoGroup {
     type Element: GroupElement<Scalar = Self::Scalar>;
     type Scalar: GroupScalar;
     // Consider adding: + FSerializable + Size + Clone + Debug + PartialEq to Element and Scalar bounds

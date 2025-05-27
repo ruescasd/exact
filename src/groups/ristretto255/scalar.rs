@@ -1,6 +1,7 @@
 use crate::serialization::{FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
+use curve25519_dalek::digest::generic_array::typenum::U64; // Added import
 use sha3::digest::Digest; // Changed path
 use rand::RngCore; // For random generation
 
@@ -15,7 +16,7 @@ impl RistrettoScalar {
 
     /// Exposes the from_hash method from the underlying Dalek Scalar type.
     /// Requires the 'digest' feature for curve25519-dalek.
-    pub fn from_hash<D: Digest>(hasher: D) -> Self {
+    pub fn from_hash<D: Digest<OutputSize = U64>>(hasher: D) -> Self {
         RistrettoScalar(DalekScalar::from_hash::<D>(hasher))
     }
 
@@ -72,7 +73,7 @@ impl FSerializable<{Self::SIZE}> for RistrettoScalar {
         // The old Exponent::parse used Scalar::from_canonical_bytes(bytes).unwrap()
         // This is a good place to ensure robust error handling if from_canonical_bytes can fail.
         // For now, maintaining unwrap to match, but this could be a point of refinement.
-        match DalekScalar::from_canonical_bytes(bytes) {
+        match DalekScalar::from_canonical_bytes(bytes).into() {
             Some(s) => RistrettoScalar(s),
             None => panic!("Failed to parse RistrettoScalar from canonical bytes"), // Or return Result
         }

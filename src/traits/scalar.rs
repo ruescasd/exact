@@ -8,7 +8,6 @@ use rand::RngCore; // For random number generation
 
 pub trait GroupScalar:
     Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
-    where [(); {Self::SIZE}]: // Added where clause for array initialization
 {
     // Error type for operations that can fail, e.g. from_bytes
     // type Error; // Consider defining a common error type later
@@ -35,7 +34,7 @@ pub trait GroupScalar:
 
 // --- Generic ExponentN struct and implementations ---
 
-#[derive(Debug, Clone, PartialEq)] // Assuming G::Scalar is PartialEq
+#[derive(Debug)] // Removed Clone, PartialEq
 pub struct ExponentN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Scalar>);
 // Note: G::Scalar already requires FSerializable, Size, Clone, Debug, PartialEq via GroupScalar
 

@@ -1,7 +1,8 @@
 use crate::serialization::{Product, Pair, FSerializable, Size};
 use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
-use crate::traits::element::ElementN;
-use crate::traits::scalar::ExponentN;
+use crate::traits::element::{ElementN, GroupElement};
+use crate::traits::group::CryptoGroup;
+use crate::traits::scalar::{ExponentN, GroupScalar};
 // use curve25519_dalek::ristretto::RistrettoPoint; // Removed as per instruction
 // curve25519_dalek::Scalar might be unused now at top level
 use rand;
@@ -234,8 +235,8 @@ mod tests {
         // ElGamalN<3>
         let parsed_egs = ElGamalN::read_bytes(bytes);
 
-        // ElementN<3>
-        let decrypted: ElementN<3> = parsed_egs.decrypt(&keypair);
+        // ElementN<Ristretto255Group, 3> - type annotation removed, inferred
+        let decrypted = parsed_egs.decrypt(&keypair);
 
         // Product<3, bool>
         // Check if each decrypted message matches the original message
