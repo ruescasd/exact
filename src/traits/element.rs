@@ -8,6 +8,7 @@ use core::fmt::Debug; // For Debug trait
 
 pub trait GroupElement:
     Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
+    where [(); {Self::SIZE}]: // Added where clause
 {
     // Associated type for the scalar field of this group element
     type Scalar: GroupScalar;
