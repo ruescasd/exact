@@ -1,7 +1,7 @@
 use crate::serialization::{FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
-use digest::Digest; // This line is already present
+use sha3::digest::Digest; // Changed path
 use rand::RngCore; // For random generation
 
 #[derive(Clone, Debug, PartialEq)] // Added PartialEq

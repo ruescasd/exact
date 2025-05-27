@@ -1,7 +1,8 @@
 use crate::serialization::{Product, Pair, FSerializable, Size};
 use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
-use crate::traits::{ElementN, ExponentN}; // Assuming ExponentN might be needed for future consistency
-use curve25519_dalek::ristretto::RistrettoPoint; // Still needed for tests if using RistrettoPoint::random
+use crate::traits::element::ElementN;
+use crate::traits::scalar::ExponentN;
+// use curve25519_dalek::ristretto::RistrettoPoint; // Removed as per instruction
 // curve25519_dalek::Scalar might be unused now at top level
 use rand;
 

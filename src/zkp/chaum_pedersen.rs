@@ -3,7 +3,7 @@ use crate::serialization::{Pair, Product, Size, FSerializable};
 
 // Imports for the prove function
 use curve25519_dalek::scalar::Scalar; // Dalek's Scalar for raw scalar ops
-use curve25519_dalek::ristretto::RistrettoPoint; // Dalek's RistrettoPoint for raw point ops
+// use curve25519_dalek::ristretto::RistrettoPoint; // Removed as per instruction
 use rand::thread_rng;
 use sha3::{Digest, Sha3_512};
 

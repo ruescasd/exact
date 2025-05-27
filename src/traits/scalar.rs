@@ -8,6 +8,7 @@ use rand::RngCore; // For random number generation
 
 pub trait GroupScalar:
     Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
+    where [(); {Self::SIZE}]: // Added where clause for array initialization
 {
     // Error type for operations that can fail, e.g. from_bytes
     // type Error; // Consider defining a common error type later
