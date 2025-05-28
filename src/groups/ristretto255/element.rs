@@ -1,5 +1,6 @@
 use crate::serialization::{FSerializable, Size};
 use crate::traits::element::GroupElement;
+use curve25519_dalek::traits::Identity;
 use crate::groups::ristretto255::scalar::RistrettoScalar; // Path to our new RistrettoScalar
 use curve25519_dalek::ristretto::{RistrettoPoint, CompressedRistretto};
 use core::fmt::Debug; // Already in scope usually, but good to be explicit if needed
@@ -20,7 +21,7 @@ impl GroupElement< {Self::SIZE}, {RistrettoScalar::SIZE}> for RistrettoElement {
     type Scalar = RistrettoScalar;
 
     fn identity() -> Self {
-        RistrettoElement(RistrettoPoint::default()) // RistrettoPoint::default() is identity
+        RistrettoElement(RistrettoPoint::identity()) // RistrettoPoint::default() is identity
     }
 
     fn add_element(&self, other: &Self) -> Self {
