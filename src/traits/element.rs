@@ -51,7 +51,7 @@ impl<G: CryptoGroup, const LEN: usize> Size for ElementN<G, LEN> where [(); G::E
 }
 
 impl<G: CryptoGroup, const LEN: usize> FSerializable<{G::ELEMENT_SERIALIZED_SIZE * LEN}> for ElementN<G, LEN>
-    where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]:
+    where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]:, Product<LEN, G::Element>: FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * LEN }>
 {
     fn read_bytes(bytes: [u8; G::ELEMENT_SERIALIZED_SIZE * LEN]) -> Self {
         ElementN(Product::<LEN, G::Element>::read_bytes(bytes))

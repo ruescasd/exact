@@ -59,7 +59,7 @@ impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> where [(); G::
 }
 
 impl<G: CryptoGroup, const LEN: usize> FSerializable<{G::SCALAR_SERIALIZED_SIZE * LEN}> for ExponentN<G, LEN>
-    where [(); G::SCALAR_SERIALIZED_SIZE]:, [(); G::ELEMENT_SERIALIZED_SIZE]: // Changed G::Scalar::SIZE to G::SCALAR_SERIALIZED_SIZE
+    where [(); G::SCALAR_SERIALIZED_SIZE]:, [(); G::ELEMENT_SERIALIZED_SIZE]:,  Product<LEN, G::Scalar>: FSerializable<{ G::SCALAR_SERIALIZED_SIZE * LEN }>
 {
     fn read_bytes(bytes: [u8; G::SCALAR_SERIALIZED_SIZE * LEN]) -> Self {
         ExponentN(Product::<LEN, G::Scalar>::read_bytes(bytes))
