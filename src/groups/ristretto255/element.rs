@@ -16,7 +16,7 @@ impl RistrettoElement {
     // and not covered by GroupElement trait.
 }
 
-impl GroupElement<32, 32> for RistrettoElement {
+impl GroupElement< {Self::SIZE}, {RistrettoScalar::SIZE}> for RistrettoElement {
     type Scalar = RistrettoScalar;
 
     fn identity() -> Self {

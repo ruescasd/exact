@@ -24,7 +24,7 @@ impl RistrettoScalar {
     // and not covered by GroupScalar trait. For now, new() and from_hash() are key.
 }
 
-impl GroupScalar<32> for RistrettoScalar {
+impl GroupScalar<{Self::SIZE}> for RistrettoScalar {
     fn zero() -> Self {
         RistrettoScalar(DalekScalar::ZERO)
     }

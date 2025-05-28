@@ -8,6 +8,7 @@ use crate::traits::group::CryptoGroup;
 // use crate::traits::element::GroupElement; // Not strictly needed here, but good for context
 // use crate::traits::scalar::GroupScalar;   // Not strictly needed here, but good for context
 use crate::utils; // For utils::hash
+use crate::serialization::Size;
 
 use curve25519_dalek::constants as dalek_constants;
 use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
@@ -17,8 +18,8 @@ use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
 pub struct Ristretto255Group;
 
 impl CryptoGroup for Ristretto255Group {
-    const ELEMENT_SERIALIZED_SIZE: usize = 32;
-    const SCALAR_SERIALIZED_SIZE: usize = 32;
+    const ELEMENT_SERIALIZED_SIZE: usize = RistrettoElement::SIZE;
+    const SCALAR_SERIALIZED_SIZE: usize = RistrettoScalar::SIZE;
 
     type Element = RistrettoElement;
     type Scalar = RistrettoScalar;
