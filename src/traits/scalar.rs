@@ -42,10 +42,10 @@ pub trait GroupScalar<const SCALAR_SIZE: usize>:
 // --- Generic ExponentN struct and implementations ---
 
 #[derive(Debug)] // Removed Clone, PartialEq
-pub struct ExponentN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Scalar>);
+pub struct ExponentN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Scalar>) where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]:;
 // Note: G::Scalar already requires FSerializable, Size, Clone, Debug, PartialEq via GroupScalar
 
-impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN> where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]: {
     /// Creates a new ExponentN from a Product of group scalars.
     pub fn new(product: Product<LEN, G::Scalar>) -> Self {
         ExponentN(product)
@@ -54,18 +54,18 @@ impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN> {
     // pub fn inner(&self) -> &Product<LEN, G::Scalar> { &self.0 }
 }
 
-impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]: {
     const SIZE: usize = Product::<LEN, G::Scalar>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ExponentN<G, LEN>
-    where [(); G::SCALAR_SERIALIZED_SIZE]: // Changed G::Scalar::SIZE to G::SCALAR_SERIALIZED_SIZE
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{G::SCALAR_SERIALIZED_SIZE * LEN}> for ExponentN<G, LEN>
+    where [(); G::SCALAR_SERIALIZED_SIZE]:, [(); G::ELEMENT_SERIALIZED_SIZE]: // Changed G::Scalar::SIZE to G::SCALAR_SERIALIZED_SIZE
 {
-    fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+    fn read_bytes(bytes: [u8; G::SCALAR_SERIALIZED_SIZE * LEN]) -> Self {
         ExponentN(Product::<LEN, G::Scalar>::read_bytes(bytes))
     }
 
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; G::SCALAR_SERIALIZED_SIZE * LEN] {
         self.0.write_bytes()
     }
 }

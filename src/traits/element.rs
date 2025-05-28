@@ -34,10 +34,10 @@ pub trait GroupElement<const ELEMENT_SIZE: usize, const SCALAR_SIZE: usize>:
 // --- Generic ElementN struct and implementations ---
 
 #[derive(Debug)] // Removed Clone, PartialEq
-pub struct ElementN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Element>);
+pub struct ElementN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Element>) where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]:;
 // Note: G::Element already requires FSerializable, Size, Clone, Debug, PartialEq via GroupElement
 
-impl<G: CryptoGroup, const LEN: usize> ElementN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> ElementN<G, LEN> where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]: {
     /// Creates a new ElementN from a Product of group elements.
     pub fn new(product: Product<LEN, G::Element>) -> Self {
         ElementN(product)
@@ -46,18 +46,18 @@ impl<G: CryptoGroup, const LEN: usize> ElementN<G, LEN> {
     // pub fn inner(&self) -> &Product<LEN, G::Element> { &self.0 }
 }
 
-impl<G: CryptoGroup, const LEN: usize> Size for ElementN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> Size for ElementN<G, LEN> where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]: {
     const SIZE: usize = Product::<LEN, G::Element>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ElementN<G, LEN>
-    where [(); G::ELEMENT_SERIALIZED_SIZE]: // Changed G::Element::SIZE to G::ELEMENT_SERIALIZED_SIZE
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{G::ELEMENT_SERIALIZED_SIZE * LEN}> for ElementN<G, LEN>
+    where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]:
 {
-    fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+    fn read_bytes(bytes: [u8; G::ELEMENT_SERIALIZED_SIZE * LEN]) -> Self {
         ElementN(Product::<LEN, G::Element>::read_bytes(bytes))
     }
 
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; G::ELEMENT_SERIALIZED_SIZE * LEN] {
         self.0.write_bytes()
     }
 }
