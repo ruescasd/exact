@@ -24,7 +24,7 @@ impl RistrettoScalar {
     // and not covered by GroupScalar trait. For now, new() and from_hash() are key.
 }
 
-impl GroupScalar for RistrettoScalar {
+impl GroupScalar<32> for RistrettoScalar {
     fn zero() -> Self {
         RistrettoScalar(DalekScalar::ZERO)
     }
@@ -68,8 +68,8 @@ impl Size for RistrettoScalar {
     const SIZE: usize = 32; // Dalek Scalar is 32 bytes
 }
 
-impl FSerializable<{Self::SIZE}> for RistrettoScalar {
-    fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+impl FSerializable<32> for RistrettoScalar {
+    fn read_bytes(bytes: [u8; 32]) -> Self { // Changed Self::SIZE to 32
         // The old Exponent::parse used Scalar::from_canonical_bytes(bytes).unwrap()
         // This is a good place to ensure robust error handling if from_canonical_bytes can fail.
         // For now, maintaining unwrap to match, but this could be a point of refinement.
@@ -79,7 +79,7 @@ impl FSerializable<{Self::SIZE}> for RistrettoScalar {
         }
     }
 
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; 32] { // Changed Self::SIZE to 32
         self.0.to_bytes()
     }
 }

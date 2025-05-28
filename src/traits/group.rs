@@ -3,8 +3,11 @@ use crate::traits::scalar::GroupScalar;
 // No need for FSerializable or Size here directly, they are on Element/Scalar
 
 pub trait CryptoGroup {
-    type Element: GroupElement<Scalar = Self::Scalar>;
-    type Scalar: GroupScalar;
+    const ELEMENT_SERIALIZED_SIZE: usize;
+    const SCALAR_SERIALIZED_SIZE: usize;
+
+    type Element: GroupElement<{ Self::ELEMENT_SERIALIZED_SIZE }, { Self::SCALAR_SERIALIZED_SIZE }, Scalar = Self::Scalar>;
+    type Scalar: GroupScalar<{ Self::SCALAR_SERIALIZED_SIZE }>;
     // Consider adding: + FSerializable + Size + Clone + Debug + PartialEq to Element and Scalar bounds
     // if not already fully enforced by GroupElement/GroupScalar requiring them.
     // GroupElement and GroupScalar already require these, so it's inherited.

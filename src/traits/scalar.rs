@@ -6,9 +6,15 @@ use rand::RngCore; // For random number generation
 // Define an error type for operations like inversion if needed, or use Option
 // For now, from_bytes might return a Result or Option, inversion will return Option
 
-pub trait GroupScalar:
-    Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
-    where [(); Self::SIZE]: // Removed braces around Self::SIZE
+/// Represents a scalar in a cryptographic group.
+///
+/// A type implementing `GroupScalar<SCALAR_SIZE>` must also implement `Size`
+/// such that `Size::SIZE` is equal to `SCALAR_SIZE`.
+/// This redundancy is to work around limitations with associated consts in traits
+/// when used as generic arguments for other traits (e.g., `FSerializable`).
+pub trait GroupScalar<const SCALAR_SIZE: usize>:
+    Size + FSerializable<SCALAR_SIZE> + Clone + Debug + PartialEq + Sized
+    where [(); SCALAR_SIZE]:
 {
     // Error type for operations that can fail, e.g. from_bytes
     // type Error; // Consider defining a common error type later
@@ -52,7 +58,9 @@ impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> {
     const SIZE: usize = Product::<LEN, G::Scalar>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ExponentN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ExponentN<G, LEN>
+    where [(); G::SCALAR_SERIALIZED_SIZE]: // Changed G::Scalar::SIZE to G::SCALAR_SERIALIZED_SIZE
+{
     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
         ExponentN(Product::<LEN, G::Scalar>::read_bytes(bytes))
     }

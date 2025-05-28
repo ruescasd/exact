@@ -6,12 +6,18 @@ use core::fmt::Debug; // For Debug trait
 // Define an error type for operations if needed, or use Result/Option
 // For now, FSerializable handles byte conversion errors implicitly via read_bytes
 
-pub trait GroupElement:
-    Size + FSerializable<{Self::SIZE}> + Clone + Debug + PartialEq + Sized // Moved Size first, updated FSerializable
-    where [(); Self::SIZE]: // Removed braces around Self::SIZE
+/// Represents an element in a cryptographic group.
+///
+/// A type implementing `GroupElement<ELEMENT_SIZE, SCALAR_SIZE>` must also implement `Size`
+/// such that `Size::SIZE` is equal to `ELEMENT_SIZE`.
+/// This redundancy is to work around limitations with associated consts in traits
+/// when used as generic arguments for other traits (e.g., `FSerializable`).
+pub trait GroupElement<const ELEMENT_SIZE: usize, const SCALAR_SIZE: usize>:
+    Size + FSerializable<ELEMENT_SIZE> + Clone + Debug + PartialEq + Sized
+    where [(); ELEMENT_SIZE]:
 {
     // Associated type for the scalar field of this group element
-    type Scalar: GroupScalar;
+    type Scalar: GroupScalar<SCALAR_SIZE>;
     // type Error; // Consider defining a common error type later
 
     // Group operations
@@ -44,7 +50,9 @@ impl<G: CryptoGroup, const LEN: usize> Size for ElementN<G, LEN> {
     const SIZE: usize = Product::<LEN, G::Element>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ElementN<G, LEN> {
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{Self::SIZE}> for ElementN<G, LEN>
+    where [(); G::ELEMENT_SERIALIZED_SIZE]: // Changed G::Element::SIZE to G::ELEMENT_SERIALIZED_SIZE
+{
     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
         ElementN(Product::<LEN, G::Element>::read_bytes(bytes))
     }

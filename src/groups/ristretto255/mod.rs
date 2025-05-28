@@ -17,6 +17,9 @@ use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
 pub struct Ristretto255Group;
 
 impl CryptoGroup for Ristretto255Group {
+    const ELEMENT_SERIALIZED_SIZE: usize = 32;
+    const SCALAR_SERIALIZED_SIZE: usize = 32;
+
     type Element = RistrettoElement;
     type Scalar = RistrettoScalar;
 

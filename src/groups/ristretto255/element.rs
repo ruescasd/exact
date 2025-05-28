@@ -16,7 +16,7 @@ impl RistrettoElement {
     // and not covered by GroupElement trait.
 }
 
-impl GroupElement for RistrettoElement {
+impl GroupElement<32, 32> for RistrettoElement {
     type Scalar = RistrettoScalar;
 
     fn identity() -> Self {
@@ -40,8 +40,8 @@ impl Size for RistrettoElement {
     const SIZE: usize = 32; // CompressedRistretto is 32 bytes
 }
 
-impl FSerializable<{Self::SIZE}> for RistrettoElement {
-    fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+impl FSerializable<32> for RistrettoElement {
+    fn read_bytes(bytes: [u8; 32]) -> Self { // Changed Self::SIZE to 32
         // Old Element::parse used CompressedRistretto(bytes).decompress().unwrap()
         // This can panic if bytes are not a valid point.
         // Consider returning Result if robust error handling is added later.
@@ -51,7 +51,7 @@ impl FSerializable<{Self::SIZE}> for RistrettoElement {
         }
     }
 
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; 32] { // Changed Self::SIZE to 32
         self.0.compress().to_bytes()
     }
 }
