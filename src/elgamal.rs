@@ -10,28 +10,31 @@ use rand;
 // Exponent and Element structs and their impls were removed from here
 
 // --- New Trait Definitions ---
-pub trait Encryptable<C> {
-    fn encrypt(&self, key: &KeyPair) -> C;
+pub trait Encryptable<G: CryptoGroup, C> 
+where [(); G::ELEMENT_SERIALIZED_SIZE]:,
+      [(); G::SCALAR_SERIALIZED_SIZE]:,
+{
+    fn encrypt(&self, key: &KeyPair<G>) -> C;
 }
 
-pub trait Decryptable<P> {
-    fn decrypt(&self, key: &KeyPair) -> P;
+pub trait Decryptable<G: CryptoGroup, P> 
+where [(); G::ELEMENT_SERIALIZED_SIZE]:,
+      [(); G::SCALAR_SERIALIZED_SIZE]:,
+{
+    fn decrypt(&self, key: &KeyPair<G>) -> P;
 }
 // --- End New Trait Definitions ---
 
-type ElGamal_<G: CryptoGroup> = Pair<G::Element, G::Element>;
-pub struct ElGamal<G: CryptoGroup>(ElGamal_<G>)
+
+pub struct ElGamal<G: CryptoGroup>(Pair<G::Element, G::Element>)
 where
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:;
 
 impl<G: CryptoGroup> ElGamal<G>
 where
-    // [(); G::ELEMENT_SERIALIZED_SIZE * 2]:, // This bound is for Size/FSerializable, not methods generally
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
-    G::Element: GroupElement<{ G::ELEMENT_SERIALIZED_SIZE }, { G::SCALAR_SERIALIZED_SIZE }, Scalar = G::Scalar> + FSerializable<{G::ELEMENT_SERIALIZED_SIZE}>,
-    // G::Scalar: GroupScalar<{ G::SCALAR_SERIALIZED_SIZE }>, // Not directly used by these methods but good for consistency
 {
     pub fn new(gr: G::Element, mhr: G::Element) -> Self {
         ElGamal(Pair { fst: gr, snd: mhr })
@@ -50,30 +53,28 @@ where
 }
 impl<G: CryptoGroup> Size for ElGamal<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE * 2]:,
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
 {
     const SIZE: usize = G::ELEMENT_SERIALIZED_SIZE * 2;
 }
-impl<G: CryptoGroup> FSerializable<{ Self::SIZE }> for ElGamal<G>
+impl<G: CryptoGroup> FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * 2 }> for ElGamal<G>
 where
     [(); G::ELEMENT_SERIALIZED_SIZE * 2]:,
-    ElGamal_<G>: FSerializable<{ Self::SIZE }>,
+    Pair::<G::Element, G::Element>: FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * 2 }>,
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
 {
-    fn read_bytes(bytes: &[u8; Self::SIZE]) -> Self {
-        let pair = ElGamal_::<G>::read_bytes(bytes);
+    fn read_bytes(bytes: [u8; G::ELEMENT_SERIALIZED_SIZE * 2]) -> Self {
+        let pair = Pair::<G::Element, G::Element>::read_bytes(bytes);
         ElGamal(pair)
     }
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; G::ELEMENT_SERIALIZED_SIZE * 2] {
         self.0.write_bytes()
     }
 }
 
-type KeyPair_<G: CryptoGroup> = Pair<G::Element, G::Scalar>;
-pub struct KeyPair<G: CryptoGroup>(KeyPair_<G>)
+pub struct KeyPair<G: CryptoGroup>(Pair<G::Element, G::Scalar>)
 where
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:;
@@ -81,9 +82,7 @@ where
 impl<G: CryptoGroup> KeyPair<G>
 where
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-    G::Element: GroupElement<{ G::ELEMENT_SERIALIZED_SIZE }, { G::SCALAR_SERIALIZED_SIZE }, Scalar = G::Scalar>,
-    G::Scalar: GroupScalar<{ G::SCALAR_SERIALIZED_SIZE }> + FSerializable<{G::SCALAR_SERIALIZED_SIZE}>,
+    [(); G::SCALAR_SERIALIZED_SIZE]:
 {
     pub fn new() -> Self { 
         let mut rng = rand::thread_rng();
@@ -115,30 +114,27 @@ where
 {
     const SIZE: usize = G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE;
 }
-impl<G: CryptoGroup> FSerializable<{ Self::SIZE }> for KeyPair<G>
+impl<G: CryptoGroup> FSerializable<{ G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE }> for KeyPair<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE]:,
-    KeyPair_<G>: FSerializable<{ Self::SIZE }>,
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
+    Pair<G::Element, G::Scalar>: FSerializable<{ G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE }>,
 {
-    fn read_bytes(bytes: &[u8; Self::SIZE]) -> Self {
-        let pair = KeyPair_::<G>::read_bytes(bytes);
+    fn read_bytes(bytes: [u8; G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE]) -> Self {
+        let pair = Pair::<G::Element, G::Scalar>::read_bytes(bytes);
         KeyPair(pair)
     }
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE] {
         self.0.write_bytes()
     }
 }
 
 // --- Encryptable/Decryptable Trait Implementations ---
 
-impl<G: CryptoGroup> Encryptable<ElGamal<G>> for G::Element
+impl<G: CryptoGroup> Encryptable<G, ElGamal<G>> for G::Element
 where
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
-    G::Element: GroupElement<{ G::ELEMENT_SERIALIZED_SIZE }, { G::SCALAR_SERIALIZED_SIZE }, Scalar = G::Scalar>,
-    G::Scalar: GroupScalar<{ G::SCALAR_SERIALIZED_SIZE }>,
     // KeyPair<G> and ElGamal<G> bounds are implicitly handled by their definitions
     // and the fact that G: CryptoGroup.
 {
@@ -158,13 +154,10 @@ where
     }
 }
 
-impl<G: CryptoGroup> Decryptable<G::Element> for ElGamal<G>
+impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE * 2]:, 
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
-    G::Element: GroupElement<{ G::ELEMENT_SERIALIZED_SIZE }, { G::SCALAR_SERIALIZED_SIZE }, Scalar = G::Scalar>,
-    G::Scalar: GroupScalar<{ G::SCALAR_SERIALIZED_SIZE }>,
 {
     fn decrypt(&self, key: &KeyPair<G>) -> G::Element {
         // self.gr() is g^r (type G::Element)
@@ -186,17 +179,10 @@ where
 
 // --- Encryptable/Decryptable Trait Implementations for N-types ---
 
-impl<G: CryptoGroup, const LEN: usize> Encryptable<ElGamalN<G, LEN>> for ElementN<G, LEN>
+impl<G: CryptoGroup, const LEN: usize> Encryptable<G, ElGamalN<G, LEN>> for ElementN<G, LEN>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
+    [(); G::ELEMENT_SERIALIZED_SIZE * 2]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
-    G::Element: GroupElement<{ G::ELEMENT_SERIALIZED_SIZE }, { G::SCALAR_SERIALIZED_SIZE }, Scalar = G::Scalar> + Encryptable<ElGamal<G>>,
-    G::Scalar: GroupScalar<{ G::SCALAR_SERIALIZED_SIZE }>,
-    ElGamal<G>: Size + FSerializable<{ElGamal::<G>::SIZE}>, // Product::map requires FSerializable for the mapped type if the original Product was. ElGamal<G> is already FSerializable.
-    Product<LEN, ElGamal<G>>: FSerializable<{Product::<LEN, ElGamal<G>>::SIZE}>, // Ensure the resulting product is serializable
-    ElementN<G, LEN>: Size,
-    ElGamalN<G, LEN>: Size,
-    KeyPair<G>: Size, // key argument
     // The Product<LEN, G::Element>::map method will also require G::Element to be FSerializable.
     // It's already part of GroupElement.
     // It will also require ElGamal<G> (the output of the closure) to be FSerializable for the new Product.
@@ -210,45 +196,33 @@ where
     }
 }
 
-impl<G: CryptoGroup, const LEN: usize> Decryptable<ElementN<G, LEN>> for ElGamalN<G, LEN>
+impl<G: CryptoGroup, const LEN: usize> Decryptable<G, ElementN<G, LEN>> for ElGamalN<G, LEN>
 where
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
-    G::Element: GroupElement<{ G::ELEMENT_SERIALIZED_SIZE }, { G::SCALAR_SERIALIZED_SIZE }, Scalar = G::Scalar> + FSerializable<{G::ELEMENT_SERIALIZED_SIZE}>, // Product::map requires FSerializable for the mapped type
-    G::Scalar: GroupScalar<{ G::SCALAR_SERIALIZED_SIZE }>,
-    ElGamal<G>: Decryptable<G::Element> + Size + FSerializable<{ElGamal::<G>::SIZE}>, // ElGamal<G> itself also needs to be FSerializable for Product::map
-    Product<LEN, G::Element>: FSerializable<{Product::<LEN, G::Element>::SIZE}>, // Ensure the resulting product is serializable
-    ElementN<G, LEN>: Size, 
-    ElGamalN<G, LEN>: Size, 
-    KeyPair<G>: Size, // key argument
-    // The Product<LEN, ElGamal<G>>::map method will also require ElGamal<G> to be FSerializable.
-    // It's already part of the bounds.
-    // It will also require G::Element (the output of the closure) to be FSerializable for the new Product.
 {
     fn decrypt(&self, key: &KeyPair<G>) -> ElementN<G, LEN> {
         // self.0 is Product<LEN, ElGamal<G>>
         // elgamal is ElGamal<G>
         // elgamal.decrypt(key) returns G::Element
-        let decrypted_product: Product<LEN, G::Element> = self.0.map(|elgamal| elgamal.decrypt(key));
+        let decrypted_product: Product<LEN, G::Element> = 
+            self.0.map(|elgamal| elgamal.decrypt(key));
         ElementN::<G, LEN>::new(decrypted_product)
     }
 }
 
 // --- End N-type Trait Implementations ---
 
-// A product of ciphertexts
-type ElGamalN_<G: CryptoGroup, const LEN: usize> = Product<LEN, ElGamal<G>>;
 
-pub struct ElGamalN<G: CryptoGroup, const LEN: usize>(pub ElGamalN_<G, LEN>)
+pub struct ElGamalN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, ElGamal<G>>)
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:;
+    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    [(); G::ELEMENT_SERIALIZED_SIZE]:;
 
 impl<G: CryptoGroup, const LEN: usize> ElGamalN<G, LEN>
 where
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-    [(); Product::<LEN, ElGamal<G>>::SIZE]:,
+    [(); G::SCALAR_SERIALIZED_SIZE]:
 {
     pub fn new(list: [ElGamal<G>; LEN]) -> Self { // Made pub
         ElGamalN(Product(list))
@@ -257,24 +231,22 @@ where
 }
 impl<G: CryptoGroup, const LEN: usize> Size for ElGamalN<G, LEN>
 where
-    [(); Product::<LEN, ElGamal<G>>::SIZE]:,
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
 {
     const SIZE: usize = Product::<LEN, ElGamal<G>>::SIZE;
 }
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{ Self::SIZE }> for ElGamalN<G, LEN> 
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{ LEN * (G::ELEMENT_SERIALIZED_SIZE * 2)  }> for ElGamalN<G, LEN> 
 where 
-    Product<LEN, ElGamal<G>>: FSerializable<{ Self::SIZE }>,
-    [(); Self::SIZE]:,
+    Product<LEN, ElGamal<G>>: FSerializable<{ LEN * (G::ELEMENT_SERIALIZED_SIZE * 2) }>,
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
 {
-     fn read_bytes(bytes: [u8; Self::SIZE]) -> Self {
+     fn read_bytes(bytes: [u8; LEN * (G::ELEMENT_SERIALIZED_SIZE * 2)]) -> Self {
         let list: Product<LEN, ElGamal<G>> = Product::read_bytes(bytes);
         ElGamalN(list)
     }
-    fn write_bytes(&self) -> [u8; Self::SIZE] {
+    fn write_bytes(&self) -> [u8; LEN * (G::ELEMENT_SERIALIZED_SIZE * 2)] {
         self.0.write_bytes()
     }
 }
@@ -328,7 +300,7 @@ mod tests {
     impl Size for bool {
         const SIZE: usize = 1;
     }
-
+ 
     #[test]
     fn test_eg_product() {
         let keypair = KeyPair::<Ristretto255Group>::new();
@@ -341,12 +313,13 @@ mod tests {
         // ElementN<Ristretto255Group, 3>
         let messages = ElementN::<Ristretto255Group, 3>::new(Product(messages_array));
 
-
         // ElGamalN<Ristretto255Group, 3>
         let egs: ElGamalN<Ristretto255Group, 3> = messages.encrypt(&keypair);
 
         // [u8; 192] = [u8; 32 * 3 * 2]
         let bytes = egs.write_bytes();
+        
+        // let bytes: [u8; 192] = egs.write_bytes(&egs);
         // ElGamalN<Ristretto255Group, 3>
         let parsed_egs = ElGamalN::<Ristretto255Group, 3>::read_bytes(bytes);
 
