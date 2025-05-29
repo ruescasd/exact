@@ -10,7 +10,7 @@ pub trait FSerializable<const LEN: usize>: Sized {
 }
 
 #[derive(Debug)] pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
-impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::SIZE * LEN} > for Product<LEN, T> 
+impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::SIZE * LEN } > for Product<LEN, T> 
 {
     fn read_bytes(bytes: [u8; T::SIZE * LEN]) -> Self {
         // Convert to array by mapping chunks directly to T

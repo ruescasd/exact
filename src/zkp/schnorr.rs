@@ -42,7 +42,6 @@ impl<G: CryptoGroup> Proof<G>
 // Update Size for Proof<G> to match KeyPair<G> pattern
 impl<G: CryptoGroup> Size for Proof<G>
     where
-        [(); G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE]:,
         [(); G::ELEMENT_SERIALIZED_SIZE]:,
         [(); G::SCALAR_SERIALIZED_SIZE]:,
 {

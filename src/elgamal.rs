@@ -1,5 +1,4 @@
 use crate::serialization::{Product, Pair, FSerializable, Size};
-use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
 use crate::traits::element::{ElementN, GroupElement};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar; // ExponentN removed from this line
@@ -60,7 +59,6 @@ where
 }
 impl<G: CryptoGroup> FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * 2 }> for ElGamal<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE * 2]:,
     Pair::<G::Element, G::Element>: FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * 2 }>,
     [(); G::ELEMENT_SERIALIZED_SIZE]:,
     [(); G::SCALAR_SERIALIZED_SIZE]:,
@@ -258,7 +256,7 @@ mod tests {
 
     use super::*; // This now brings in RistrettoElement, RistrettoScalar etc.
     // No need to import Element, Exponent, ElementN from crate::arithmetic anymore
-    use crate::groups::ristretto255::Ristretto255Group; // Explicit import for clarity
+    use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
 
     // test_element and test_exponent removed.
     // curve25519_dalek::scalar::Scalar import removed as it's no longer directly used by remaining tests.
@@ -317,6 +315,7 @@ mod tests {
         let egs: ElGamalN<Ristretto255Group, 3> = messages.encrypt(&keypair);
 
         // [u8; 192] = [u8; 32 * 3 * 2]
+        // let bytes = <ElGamalN<Ristretto255Group, 3> as FSerializable<192>>::write_bytes(&egs);
         let bytes = egs.write_bytes();
         
         // let bytes: [u8; 192] = egs.write_bytes(&egs);

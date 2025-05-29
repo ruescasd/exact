@@ -1,4 +1,8 @@
 #![feature(generic_const_exprs)]
+#![feature(adt_const_params)]
+#![feature(generic_arg_infer)]
+// #![feature(min_generic_const_args)]
+// #![feature(inherent_associated_types)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 
