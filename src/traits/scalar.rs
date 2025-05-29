@@ -1,4 +1,4 @@
-use crate::serialization::{FSerializable, Size, Product}; // Added Product
+use crate::serialization::{FSerializable, Product, Size}; // Added Product
 use crate::traits::group::CryptoGroup; // For G: CryptoGroup bound
 use core::fmt::Debug; // For Debug trait
 use rand::RngCore; // For random number generation
@@ -14,7 +14,8 @@ use rand::RngCore; // For random number generation
 /// when used as generic arguments for other traits (e.g., `FSerializable`).
 pub trait GroupScalar<const SCALAR_SIZE: usize>:
     Size + FSerializable<SCALAR_SIZE> + Clone + Debug + PartialEq + Sized
-    where [(); SCALAR_SIZE]:
+where
+    [(); SCALAR_SIZE]:,
 {
     // Error type for operations that can fail, e.g. from_bytes
     // type Error; // Consider defining a common error type later
@@ -42,10 +43,17 @@ pub trait GroupScalar<const SCALAR_SIZE: usize>:
 // --- Generic ExponentN struct and implementations ---
 
 #[derive(Debug)] // Removed Clone, PartialEq
-pub struct ExponentN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Scalar>) where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]:;
+pub struct ExponentN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, G::Scalar>)
+where
+    [(); G::ELEMENT_SERIALIZED_SIZE]:,
+    [(); G::SCALAR_SERIALIZED_SIZE]:;
 // Note: G::Scalar already requires FSerializable, Size, Clone, Debug, PartialEq via GroupScalar
 
-impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN> where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]: {
+impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN>
+where
+    [(); G::ELEMENT_SERIALIZED_SIZE]:,
+    [(); G::SCALAR_SERIALIZED_SIZE]:,
+{
     /// Creates a new ExponentN from a Product of group scalars.
     pub fn new(product: Product<LEN, G::Scalar>) -> Self {
         ExponentN(product)
@@ -54,12 +62,20 @@ impl<G: CryptoGroup, const LEN: usize> ExponentN<G, LEN> where [(); G::ELEMENT_S
     // pub fn inner(&self) -> &Product<LEN, G::Scalar> { &self.0 }
 }
 
-impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN> where [(); G::ELEMENT_SERIALIZED_SIZE]:, [(); G::SCALAR_SERIALIZED_SIZE]: {
+impl<G: CryptoGroup, const LEN: usize> Size for ExponentN<G, LEN>
+where
+    [(); G::ELEMENT_SERIALIZED_SIZE]:,
+    [(); G::SCALAR_SERIALIZED_SIZE]:,
+{
     const SIZE: usize = Product::<LEN, G::Scalar>::SIZE;
 }
 
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{G::SCALAR_SERIALIZED_SIZE * LEN}> for ExponentN<G, LEN>
-    where [(); G::SCALAR_SERIALIZED_SIZE]:, [(); G::ELEMENT_SERIALIZED_SIZE]:,  Product<LEN, G::Scalar>: FSerializable<{ G::SCALAR_SERIALIZED_SIZE * LEN }>
+impl<G: CryptoGroup, const LEN: usize> FSerializable<{ G::SCALAR_SERIALIZED_SIZE * LEN }>
+    for ExponentN<G, LEN>
+where
+    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    [(); G::ELEMENT_SERIALIZED_SIZE]:,
+    Product<LEN, G::Scalar>: FSerializable<{ G::SCALAR_SERIALIZED_SIZE * LEN }>,
 {
     fn read_bytes(bytes: [u8; G::SCALAR_SERIALIZED_SIZE * LEN]) -> Self {
         ExponentN(Product::<LEN, G::Scalar>::read_bytes(bytes))

@@ -1,5 +1,3 @@
-// #![feature(adt_const_params)] // Not strictly needed for usize, but good if types were const params
-
 pub trait Size {
     const SIZE: usize;
 }
@@ -9,8 +7,10 @@ pub trait FSerializable<const LEN: usize>: Sized {
     fn write_bytes(&self) -> [u8; LEN];
 }
 
-#[derive(Debug)] pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
-impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::SIZE * LEN } > for Product<LEN, T> 
+#[derive(Debug)]
+pub struct Product<const LEN: usize, T: Size>(pub [T; LEN]);
+impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::SIZE * LEN }>
+    for Product<LEN, T>
 {
     fn read_bytes(bytes: [u8; T::SIZE * LEN]) -> Self {
         // Convert to array by mapping chunks directly to T
@@ -33,14 +33,13 @@ impl<const LEN: usize, T: Size + FSerializable<{ T::SIZE }>> FSerializable<{ T::
         bytes
     }
 }
-impl<const LEN: usize, T: Size> Size for Product<LEN, T>
-{
+impl<const LEN: usize, T: Size> Size for Product<LEN, T> {
     const SIZE: usize = LEN * T::SIZE;
 }
 impl<const LEN: usize, T: Size> Product<LEN, T> {
     pub fn zip_with<U, F>(&self, other: &Product<LEN, T>, mut f: F) -> Product<LEN, U>
     where
-        U: Size, // The resulting element type U must also be Size constrained
+        U: Size,               // The resulting element type U must also be Size constrained
         F: FnMut(&T, &T) -> U, // The combining function
     {
         // We need to create an array [U; LEN].
@@ -56,12 +55,12 @@ impl<const LEN: usize, T: Size> Product<LEN, T> {
 
     pub fn map<U, F>(&self, mut f: F) -> Product<LEN, U>
     where
-        U: Size, // The resulting element type U must also be Size constrained
+        U: Size,           // The resulting element type U must also be Size constrained
         F: FnMut(&T) -> U, // The mapping function
     {
         // We need to create an array [U; LEN].
         let result_array = std::array::from_fn(|i| f(&self.0[i]));
-        
+
         Product(result_array)
     }
 }

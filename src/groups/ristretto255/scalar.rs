@@ -1,9 +1,9 @@
 use crate::serialization::{FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
-use curve25519_dalek::scalar::Scalar as DalekScalar;
 use curve25519_dalek::digest::generic_array::typenum::U64; // Added import
-use sha3::digest::Digest; // Changed path
-use rand::RngCore; // For random generation
+use curve25519_dalek::scalar::Scalar as DalekScalar;
+use rand::RngCore;
+use sha3::digest::Digest; // Changed path // For random generation
 
 #[derive(Clone, Debug, PartialEq)] // Added PartialEq
 pub struct RistrettoScalar(pub DalekScalar); // Renamed Exponent to RistrettoScalar
@@ -24,7 +24,7 @@ impl RistrettoScalar {
     // and not covered by GroupScalar trait. For now, new() and from_hash() are key.
 }
 
-impl GroupScalar<{Self::SIZE}> for RistrettoScalar {
+impl GroupScalar<{ Self::SIZE }> for RistrettoScalar {
     fn zero() -> Self {
         RistrettoScalar(DalekScalar::ZERO)
     }
@@ -69,7 +69,8 @@ impl Size for RistrettoScalar {
 }
 
 impl FSerializable<32> for RistrettoScalar {
-    fn read_bytes(bytes: [u8; 32]) -> Self { // Changed Self::SIZE to 32
+    fn read_bytes(bytes: [u8; 32]) -> Self {
+        // Changed Self::SIZE to 32
         // The old Exponent::parse used Scalar::from_canonical_bytes(bytes).unwrap()
         // This is a good place to ensure robust error handling if from_canonical_bytes can fail.
         // For now, maintaining unwrap to match, but this could be a point of refinement.
@@ -79,7 +80,8 @@ impl FSerializable<32> for RistrettoScalar {
         }
     }
 
-    fn write_bytes(&self) -> [u8; 32] { // Changed Self::SIZE to 32
+    fn write_bytes(&self) -> [u8; 32] {
+        // Changed Self::SIZE to 32
         self.0.to_bytes()
     }
 }

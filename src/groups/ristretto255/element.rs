@@ -1,9 +1,9 @@
+use crate::groups::ristretto255::scalar::RistrettoScalar; // Path to our new RistrettoScalar
 use crate::serialization::{FSerializable, Size};
 use crate::traits::element::GroupElement;
-use curve25519_dalek::traits::Identity;
-use crate::groups::ristretto255::scalar::RistrettoScalar; // Path to our new RistrettoScalar
-use curve25519_dalek::ristretto::{RistrettoPoint, CompressedRistretto};
-use core::fmt::Debug; // Already in scope usually, but good to be explicit if needed
+use core::fmt::Debug;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::traits::Identity; // Already in scope usually, but good to be explicit if needed
 
 #[derive(Clone, Debug, PartialEq)] // Added PartialEq
 pub struct RistrettoElement(pub RistrettoPoint); // Renamed Element to RistrettoElement
@@ -17,7 +17,7 @@ impl RistrettoElement {
     // and not covered by GroupElement trait.
 }
 
-impl GroupElement< {Self::SIZE}, {RistrettoScalar::SIZE}> for RistrettoElement {
+impl GroupElement<{ Self::SIZE }, { RistrettoScalar::SIZE }> for RistrettoElement {
     type Scalar = RistrettoScalar;
 
     fn identity() -> Self {
@@ -42,7 +42,8 @@ impl Size for RistrettoElement {
 }
 
 impl FSerializable<32> for RistrettoElement {
-    fn read_bytes(bytes: [u8; 32]) -> Self { // Changed Self::SIZE to 32
+    fn read_bytes(bytes: [u8; 32]) -> Self {
+        // Changed Self::SIZE to 32
         // Old Element::parse used CompressedRistretto(bytes).decompress().unwrap()
         // This can panic if bytes are not a valid point.
         // Consider returning Result if robust error handling is added later.
@@ -52,7 +53,8 @@ impl FSerializable<32> for RistrettoElement {
         }
     }
 
-    fn write_bytes(&self) -> [u8; 32] { // Changed Self::SIZE to 32
+    fn write_bytes(&self) -> [u8; 32] {
+        // Changed Self::SIZE to 32
         self.0.compress().to_bytes()
     }
 }
