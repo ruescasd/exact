@@ -256,7 +256,7 @@ mod tests {
 
     use super::*; // This now brings in RistrettoElement, RistrettoScalar etc.
     // No need to import Element, Exponent, ElementN from crate::arithmetic anymore
-    use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
+    use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement};
 
     // test_element and test_exponent removed.
     // curve25519_dalek::scalar::Scalar import removed as it's no longer directly used by remaining tests.

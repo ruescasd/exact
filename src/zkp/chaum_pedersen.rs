@@ -143,7 +143,7 @@ mod tests {
     use crate::groups::ristretto255::{RistrettoElement, RistrettoScalar, Ristretto255Group};
     // FSerializable, Size removed from test imports
     use curve25519_dalek::scalar::Scalar as DalekScalar;
-    use curve25519_dalek::{constants as dalek_constants, RistrettoPoint}; 
+    use curve25519_dalek::{constants as dalek_constants}; 
     use rand::thread_rng;
 
     fn get_basepoint_g() -> RistrettoElement {
