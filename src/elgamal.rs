@@ -196,7 +196,7 @@ where
     G::Element: Clone + Size + FSerializable<<G::Element as Size>::SizeType> + GroupElement<Scalar = G::Scalar> + Clone + Default,
     G::Scalar: Clone + Size + FSerializable<<G::Scalar as Size>::SizeType> + GroupScalar + Clone + Default,
     ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType> + Clone + Default,
-    LenType: Unsigned + NonZero + ArraySize,
+    LenType: NonZero + ArraySize,
     // Bounds for Size of ElGamal<G>
     <G::Element as Size>::SizeType: CoreAdd<<G::Element as Size>::SizeType>,
     Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: Unsigned + NonZero + ArraySize,
@@ -250,9 +250,9 @@ where
     G::Element: GroupElement<Scalar = G::Scalar> + Size + FSerializable<<G::Element as Size>::SizeType> + Clone + Default,
     G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone + Default,
     ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType> + Clone + Default,
-    LenType: Unsigned + NonZero + ArraySize,
+    LenType: NonZero + ArraySize,
     // Bounds from ElementN struct definition
-    <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType> + CoreAdd<<G::Element as Size>::SizeType>, // Added CoreAdd here
+    <G::Element as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType> + CoreAdd<<G::Element as Size>::SizeType>, // Added CoreAdd here
     Prod<<G::Element as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
     // Bounds for Size of ElGamal<G> (needed for Array<ElGamal<G>, LenType>::default() and its FSerializable)
     Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: Unsigned + NonZero + ArraySize,

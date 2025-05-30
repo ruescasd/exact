@@ -44,9 +44,8 @@ impl<A, B> FSerializable<Sum<A::SizeType, B::SizeType>> for Pair<A, B>
 where
     A: FSerializable<A::SizeType> + Size,
     B: FSerializable<B::SizeType> + Size,
-    A::SizeType: ArraySize + CoreAdd<B::SizeType>,
-    B::SizeType: ArraySize,
-    Sum<A::SizeType, B::SizeType>: NonZero + ArraySize 
+    A::SizeType: CoreAdd<B::SizeType>,
+    Sum<A::SizeType, B::SizeType>: ArraySize 
          // For split: (S1+S2) - S1 = S2
         + CoreSub<A::SizeType, Output = B::SizeType>,
 {
@@ -72,10 +71,10 @@ pub struct Product<T, NLen: ArraySize>(pub Array<T, NLen>);
 
 impl<T, NLen> FSerializable<Prod<T::SizeType, NLen>> for Product<T, NLen>
 where
-    T: FSerializable<T::SizeType> + Size + Default + Clone,
-    T::SizeType: ArraySize + CoreMul<NLen>,
+    T: FSerializable<T::SizeType> + Size,
+    T::SizeType: CoreMul<NLen>,
     NLen: ArraySize,
-    Prod<T::SizeType, NLen>: NonZero + ArraySize,
+    Prod<T::SizeType, NLen>: ArraySize,
 {
     fn serialize(&self) -> Array<u8, Prod<T::SizeType, NLen>> {
         let mut result = Array::<u8, Prod<T::SizeType, NLen>>::default();
@@ -90,19 +89,17 @@ where
     }
 
     fn deserialize(buffer: Array<u8, Prod<T::SizeType, NLen>>) -> Result<Self, Error> {
-        let mut deserialized_items_array = Array::<T, NLen>::default();
-
-        for i in 0..NLen::USIZE {
+        let result = Array::<T, NLen>::try_from_fn(|i| {
             let start = i * T::SizeType::USIZE;
             let end = start + T::SizeType::USIZE;
 
-            let mut item_buffer = Array::<u8, T::SizeType>::default();
-            item_buffer.as_mut_slice().copy_from_slice(&buffer.as_slice()[start..end]);
+            let item_array: Result<Array::<u8, T::SizeType>, _> = buffer[start..end].try_into();
 
-            // T::deserialize now returns Result
-            deserialized_items_array.as_mut_slice()[i] = T::deserialize(item_buffer)?;
-        }
-        Ok(Product(deserialized_items_array))
+            // This failure should not be possible, as the array size is known
+            T::deserialize(item_array.map_err(|_| Error::DeserializationError)?)
+        });
+        
+        Ok(Product(result?))
     }
 }
 
@@ -113,84 +110,13 @@ mod tests {
     use hybrid_array::typenum::{U1, U2, U3, U4, U5, U8, U32, Sum, Prod, Unsigned};
 
     #[test]
-    fn test_u8_serialization() {
-        let val: u8 = 0xAB;
-        let serialized = val.serialize();
-        assert_eq!(serialized.as_slice().len(), U1::USIZE);
-        let deserialized = u8::deserialize(serialized).unwrap();
-        assert_eq!(val, deserialized);
-    }
-
-    #[test]
-    fn test_u16_serialization() {
-        let val: u16 = 0xABCD;
-        let serialized = val.serialize();
-        assert_eq!(serialized.as_slice().len(), U2::USIZE);
-        let deserialized = u16::deserialize(serialized).unwrap();
-        assert_eq!(val, deserialized);
-
-        let val_zero: u16 = 0;
-        let serialized_zero = val_zero.serialize();
-        let deserialized_zero = u16::deserialize(serialized_zero).unwrap();
-        assert_eq!(val_zero, deserialized_zero);
-
-        let val_max: u16 = u16::MAX;
-        let serialized_max = val_max.serialize();
-        let deserialized_max = u16::deserialize(serialized_max).unwrap();
-        assert_eq!(val_max, deserialized_max);
-    }
-
-    #[test]
-    fn test_u32_serialization() {
-        let val: u32 = 0x12345678;
-        let serialized = val.serialize();
-        assert_eq!(serialized.as_slice().len(), U4::USIZE);
-        let deserialized = u32::deserialize(serialized).unwrap();
-        assert_eq!(val, deserialized);
-    }
-
-    #[test]
-    fn test_u64_serialization() {
-        let val: u64 = 0x123456789ABCDEF0;
-        let serialized = val.serialize();
-        assert_eq!(serialized.as_slice().len(), U8::USIZE);
-        let deserialized = u64::deserialize(serialized).unwrap();
-        assert_eq!(val, deserialized);
-    }
-
-    #[test]
     fn test_pair_element_serialization() {
-        // RistrettoElement implements Size (U32) and FSerializable<U32>
-        // u16 implements Size (U2) and FSerializable<U2>
-        let p = Pair(RistrettoElement::default(), 0xABCD_u16);
-        let serialized: Array<u8, Sum<U32, U2>> = p.serialize(); // U32 for RistrettoElement
-        assert_eq!(serialized.as_slice().len(), <Sum<U32, U2> as Unsigned>::USIZE);
-        let deserialized = Pair::<RistrettoElement, u16>::deserialize(serialized).unwrap();
+        let p = Pair(RistrettoElement::default(), RistrettoElement::default());
+        let serialized: Array<u8, Sum<U32, U32>> = p.serialize(); // U32 for RistrettoElement
+        assert_eq!(serialized.as_slice().len(), <Sum<U32, U32> as Unsigned>::USIZE);
+        let deserialized = Pair::<RistrettoElement, RistrettoElement>::deserialize(serialized).unwrap();
         assert_eq!(p.0, deserialized.0);
         assert_eq!(p.1, deserialized.1);
-    }
-
-    #[test]
-    fn test_pair_basic_types_serialization() {
-        let p = Pair(0xABCD_u16, 0x12345678_u32);
-        let serialized: Array<u8, Sum<U2, U4>> = p.serialize();
-        assert_eq!(serialized.as_slice().len(), <Sum<U2, U4> as Unsigned>::USIZE);
-        assert_eq!(<Sum<U2, U4> as Unsigned>::USIZE, 6);
-        let deserialized = Pair::<u16, u32>::deserialize(serialized).unwrap();
-        assert_eq!(p.0, deserialized.0);
-        assert_eq!(p.1, deserialized.1);
-    }
-
-    #[test]
-    fn test_product_u8_serialization() {
-        let data_slice = &[10, 20, 30, 40, 50];
-        let r = Product(Array::<u8, U5>::from(*data_slice));
-
-        let serialized = r.serialize();
-        assert_eq!(serialized.as_slice().len(), <Prod<U1, U5> as Unsigned>::USIZE);
-        assert_eq!(<Prod<U1, U5> as Unsigned>::USIZE, 5);
-        let deserialized = Product::<u8, U5>::deserialize(serialized).unwrap();
-        assert_eq!(r.0.as_slice(), deserialized.0.as_slice());
     }
 
     #[test]
@@ -221,8 +147,8 @@ mod tests {
     }
 }
 
-// FSerializable implementations for basic types & Size impls for them
 
+/* 
 // u8
 impl Size for u8 { type SizeType = U1; }
 impl FSerializable<U1> for u8 {
@@ -279,3 +205,4 @@ impl FSerializable<U8> for u64 {
             .map_err(|_| Error::DeserializationError)
     }
 }
+*/

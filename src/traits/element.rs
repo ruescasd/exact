@@ -41,16 +41,15 @@ where
     G: CryptoGroup,
     LenType: ArraySize,
     G::Element: Clone + Size,
-    <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // Use G::Element's SizeType
-    Prod<<G::Element as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize;
+    <G::Element as Size>::SizeType: CoreMul<LenType>, // Use G::Element's SizeType
+    Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize;
 
 
 impl<G, LenType> ElementN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    G::Element: GroupElement + Size + Clone,
-    <G::Element as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
+    <G::Element as Size>::SizeType: CoreMul<LenType>,
     Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
     /// Creates a new ElementN from a Repeated struct of group elements.
@@ -58,10 +57,6 @@ where
         ElementN(elements)
     }
 }
-
-// No need for `impl serialization::Size for ElementN` anymore.
-// It will implement `serialization_hybrid::FSerializable<Prod<<G::Element as Size>::SizeType, LenType>>`
-
 impl<G, LenType> FSerializable<Prod<<G::Element as Size>::SizeType, LenType>>
     for ElementN<G, LenType>
 where
@@ -69,10 +64,9 @@ where
     G::Element: GroupElement // Ensure G::Element is a GroupElement
                + FSerializable<<G::Element as Size>::SizeType>
                + Size
-               + Default
                + Clone,
     LenType: NonZero + ArraySize,
-    <G::Element as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
+    <G::Element as Size>::SizeType: CoreMul<LenType>,
     Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
     fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Element as Size>::SizeType, LenType>> {
