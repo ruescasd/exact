@@ -1,38 +1,31 @@
 use crate::traits::element::GroupElement;
 use crate::traits::scalar::GroupScalar;
-// No need for FSerializable or Size here directly, they are on Element/Scalar
+use hybrid_array::typenum::{Unsigned, NonZero}; // For typenum constraints
+use hybrid_array::ArraySize; // For ArraySize constraint
 
 pub trait CryptoGroup {
-    const ELEMENT_SERIALIZED_SIZE: usize;
-    const SCALAR_SERIALIZED_SIZE: usize;
+    // Changed from const usize to associated types
+    type ElementSerializedSize: Unsigned + NonZero + ArraySize;
+    type ScalarSerializedSize: Unsigned + NonZero + ArraySize;
 
-    type Element: GroupElement<
-            { Self::ELEMENT_SERIALIZED_SIZE },
-            { Self::SCALAR_SERIALIZED_SIZE },
-            Scalar = Self::Scalar,
-        >
-    where
-        [(); Self::ELEMENT_SERIALIZED_SIZE]:,
-        [(); Self::SCALAR_SERIALIZED_SIZE]:;
-    type Scalar: GroupScalar<{ Self::SCALAR_SERIALIZED_SIZE }>
-    where
-        [(); Self::SCALAR_SERIALIZED_SIZE]:;
-    // Consider adding: + FSerializable + Size + Clone + Debug + PartialEq to Element and Scalar bounds
-    // if not already fully enforced by GroupElement/GroupScalar requiring them.
-    // GroupElement and GroupScalar already require these, so it's inherited.
+    // The generic arguments for GroupElement and GroupScalar will change
+    // from const usize to type parameters (typenum types).
+    // This will require updating GroupElement and GroupScalar trait definitions later.
+    // For now, this will likely cause errors, which is expected for this step.
+    type Element: GroupElement<Self::ElementSerializedSize, Self::ScalarSerializedSize, Scalar = Self::Scalar>;
+    type Scalar: GroupScalar<Self::ScalarSerializedSize>;
+    // Where clauses like `[(); Self::ELEMENT_SERIALIZED_SIZE]:,` are no longer needed here
+    // as ArraySize on the associated types implies usability.
 
     /// Returns the standard generator for this cryptographic group.
-    fn generator() -> Self::Element
-    where
-        [(); Self::ELEMENT_SERIALIZED_SIZE]:,
-        [(); Self::SCALAR_SERIALIZED_SIZE]:;
+    fn generator() -> Self::Element;
+    // Where clauses for generator's associated types are implicitly handled by ArraySize on Element/Scalar associated types.
 
     /// Hashes arbitrary byte slices into a scalar of this group.
     /// This method should encapsulate any group-specific domain separation
     /// or procedures for mapping hash output to a valid scalar.
-    fn hash_to_scalar(input_slices: &[&[u8]]) -> Self::Scalar
-    where
-        [(); Self::SCALAR_SERIALIZED_SIZE]:;
+    fn hash_to_scalar(input_slices: &[&[u8]]) -> Self::Scalar;
+    // Where clause for Scalar's associated type is implicitly handled by ArraySize.
 
     // Potential future additions, keeping minimal for now:
     // fn group_order_str() -> &'static str; // For informational purposes

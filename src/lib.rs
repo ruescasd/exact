@@ -9,7 +9,7 @@
 // Core Abstractions & Utilities
 // pub mod serialization; // Commented out due to generic_const_exprs errors
 pub mod serialization_hybrid;
-// pub mod traits; // Commented out due to generic_const_exprs errors
+pub mod traits; // Uncommented
 pub mod utils; // Keep utils for now, may be needed by serialization_hybrid or be independent
 
 // Concrete Implementations & Schemes

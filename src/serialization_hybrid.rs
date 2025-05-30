@@ -100,16 +100,16 @@ where
 }
 
 // Define the Repeated<T, NLen> struct (N_LEN -> NLen)
-#[derive(Debug, Clone)] // Assuming T is Clone for Repeated to be Clone. Add PartialEq, Eq if T supports them.
-pub struct Repeated<T, NLen: ArraySize>(pub Array<T, NLen>);
+#[derive(Debug, Clone, PartialEq, Eq)] // Added PartialEq, Eq for testing. Requires T: PartialEq, Eq
+pub struct Repeated<T, NLen: ArraySize>(pub Array<T, NLen>) where T: PartialEq + Eq; // Added T: PartialEq + Eq here for the struct itself
 
 // Implement FSerializable for Repeated<T, NLen>
 impl<T, NLen> FSerializable<Prod<T::SizeType, NLen>> for Repeated<T, NLen>
 where
-    T: FSerializable<T::SizeType> + Size + Default, // T must implement Size, S1 becomes T::SizeType
-    T::SizeType: typenum::Unsigned + typenum::NonZero + ArraySize + CoreMul<NLen>, // T::SizeType is size of one T
-    NLen: typenum::Unsigned + typenum::NonZero + ArraySize, // NLen is the number of T items
-    Prod<T::SizeType, NLen>: typenum::Unsigned + typenum::NonZero + ArraySize, // Total size T::SizeType * NLen
+    T: FSerializable<T::SizeType> + Size + Default + PartialEq + Eq, // Added PartialEq + Eq for assert_eq on Repeated
+    T::SizeType: typenum::Unsigned + typenum::NonZero + ArraySize + CoreMul<NLen>,
+    NLen: typenum::Unsigned + typenum::NonZero + ArraySize,
+    Prod<T::SizeType, NLen>: typenum::Unsigned + typenum::NonZero + ArraySize,
     // Sub-component requirements for operations:
     // For serialize loop: NLen::USIZE must be valid.
     // For deserialize loop: NLen::USIZE, T::SizeType::USIZE must be valid.
