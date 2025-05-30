@@ -9,3 +9,4 @@ edition = "2024"
 curve25519-dalek = {version = "4.1.3", features = ["rand_core", "digest"] }
 rand = { version = "0.8", features = ["std"] }
 sha3 = "0.10"
+hybrid-array = "0.3"

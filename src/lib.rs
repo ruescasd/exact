@@ -8,6 +8,7 @@
 
 // Core Abstractions & Utilities
 pub mod serialization; // Was already pub
+pub mod serialization_hybrid;
 pub mod traits;
 pub mod utils;
 
