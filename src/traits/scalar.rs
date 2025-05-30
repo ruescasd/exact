@@ -1,4 +1,4 @@
-use crate::serialization_hybrid::{FSerializable, Repeated, Size as SerHySize};
+use crate::serialization_hybrid::{FSerializable, Product, Size as SerHySize};
 use crate::traits::group::CryptoGroup;
 use core::fmt::Debug;
 use rand::RngCore;
@@ -34,8 +34,8 @@ pub trait GroupScalar:
     fn invert(&self) -> Option<Self>;
 }
 
-#[derive(Debug, Clone)]
-pub struct ExponentN<G, LenType>(pub Repeated<G::Scalar, LenType>)
+#[derive(Debug)]
+pub struct ExponentN<G, LenType>(pub Product<G::Scalar, LenType>)
 where
     G: CryptoGroup,
     LenType: Unsigned + NonZero + ArraySize,
@@ -51,7 +51,7 @@ where
     <G::Scalar as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
     Prod<<G::Scalar as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
 {
-    pub fn new(elements: Repeated<G::Scalar, LenType>) -> Self {
+    pub fn new(elements: Product<G::Scalar, LenType>) -> Self {
         ExponentN(elements)
     }
 }
@@ -74,14 +74,14 @@ where
     }
 
     fn deserialize(buffer: hybrid_array::Array<u8, Prod<<G::Scalar as SerHySize>::SizeType, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
-        Ok(ExponentN(Repeated::<G::Scalar, LenType>::deserialize(buffer)?))
+        Ok(ExponentN(Product::<G::Scalar, LenType>::deserialize(buffer)?))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::serialization_hybrid::{FSerializable, Repeated, Size as SerHySize, Error as SerError};
+    use crate::serialization_hybrid::{FSerializable, Product, Size as SerHySize, Error as SerError};
     use crate::traits::group::CryptoGroup;
     use crate::traits::element::GroupElement;
     use hybrid_array::typenum::{Prod, Unsigned, NonZero, U3, U16, U32};
@@ -164,7 +164,7 @@ mod tests {
         type ExponentNSerializedLen = Prod<U16, U3>;
 
         let scalars_array = Array::<TestScalar, U3>::from([s1_val.clone(), s2_val.clone(), s3_val.clone()]);
-        let repeated_scalars = Repeated(scalars_array);
+        let repeated_scalars = Product(scalars_array);
         let exponent_n_val = ExponentNTestType::new(repeated_scalars);
 
         let serialized_bytes = exponent_n_val.serialize();

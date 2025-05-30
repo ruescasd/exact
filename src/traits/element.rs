@@ -1,4 +1,4 @@
-use crate::serialization_hybrid::{FSerializable, Repeated, Size as SerHySize}; // Using new serialization_hybrid, aliased Size
+use crate::serialization_hybrid::{FSerializable, Product, Size}; // Using new serialization_hybrid, aliased Size
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use core::fmt::Debug;
@@ -9,16 +9,13 @@ use core::ops::Mul as CoreMul; // For Mul trait bound
 use core::ops::{Add, Sub, Neg}; // For arithmetic trait bounds
 
 /// Represents an element in a cryptographic group.
-// Size generic parameters S and SS removed. Size info comes from Self: SerHySize.
-// Scalar size info comes from Self::Scalar: SerHySize.
+// Size generic parameters S and SS removed. Size info comes from Self: Size.
+// Scalar size info comes from Self::Scalar: Size.
 pub trait GroupElement:
-    SerHySize // Implies Self::SizeType as the element's size
+    Size // Implies Self::SizeType as the element's size
     + FSerializable<Self::SizeType>
-    + Default // For identity, or direct identity method
-    + Clone
     + Debug
-    + PartialEq
-    + Eq
+    + Clone
     + Sized
     // Common group operations as trait bounds (optional, can be methods too)
     + Add<Self, Output = Self>
@@ -27,8 +24,8 @@ pub trait GroupElement:
 {
     // Associated type for the scalar field of this group element
     type Scalar: GroupScalar // GroupScalar will also have no size generic
-                + SerHySize // Require Scalar to also have a size.
-                + FSerializable<<Self::Scalar as SerHySize>::SizeType>; // And be FSerializable with its own size.
+                + Size // Require Scalar to also have a size.
+                + FSerializable<<Self::Scalar as Size>::SizeType>; // And be FSerializable with its own size.
                 // Add other bounds for Scalar if necessary, e.g. Debug, Clone, Eq
 
     // Group operations
@@ -38,64 +35,59 @@ pub trait GroupElement:
     fn scalar_mul(&self, scalar: &Self::Scalar) -> Self;
 }
 
-// --- Generic ElementN struct and implementations ---
-// ElementN is a collection of LenType group elements.
-// It should use Repeated from serialization_hybrid.
-// G::ElementSerializedSize is the size of one element.
-// LenType is the number of elements (a typenum type).
-#[derive(Debug, Clone)] // Assuming G::Element will be Clone
-pub struct ElementN<G, LenType>(pub Repeated<G::Element, LenType>)
+#[derive(Debug)] // Assuming G::Element will be Clone
+pub struct ElementN<G, LenType>(pub Product<G::Element, LenType>)
 where
     G: CryptoGroup,
-    LenType: Unsigned + NonZero + ArraySize,
-    G::Element: SerHySize + Clone + Default + Eq + PartialEq, // Added SerHySize, Eq, PartialEq
-    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // Use G::Element's SizeType
-    Prod<<G::Element as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize;
+    LenType: ArraySize,
+    G::Element: Clone + Size,
+    <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // Use G::Element's SizeType
+    Prod<<G::Element as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize;
 
 
 impl<G, LenType> ElementN<G, LenType>
 where
     G: CryptoGroup,
-    LenType: Unsigned + NonZero + ArraySize,
-    G::Element: GroupElement + SerHySize + Clone + Default + Eq + PartialEq, // G::Element must be a GroupElement
-    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Element as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    LenType: ArraySize,
+    G::Element: GroupElement + Size + Clone,
+    <G::Element as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
     /// Creates a new ElementN from a Repeated struct of group elements.
-    pub fn new(elements: Repeated<G::Element, LenType>) -> Self {
+    pub fn new(elements: Product<G::Element, LenType>) -> Self {
         ElementN(elements)
     }
 }
 
 // No need for `impl serialization::Size for ElementN` anymore.
-// It will implement `serialization_hybrid::FSerializable<Prod<<G::Element as SerHySize>::SizeType, LenType>>`
+// It will implement `serialization_hybrid::FSerializable<Prod<<G::Element as Size>::SizeType, LenType>>`
 
-impl<G, LenType> FSerializable<Prod<<G::Element as SerHySize>::SizeType, LenType>>
+impl<G, LenType> FSerializable<Prod<<G::Element as Size>::SizeType, LenType>>
     for ElementN<G, LenType>
 where
     G: CryptoGroup,
     G::Element: GroupElement // Ensure G::Element is a GroupElement
-               + FSerializable<<G::Element as SerHySize>::SizeType>
-               + SerHySize
+               + FSerializable<<G::Element as Size>::SizeType>
+               + Size
                + Default
-               + Clone + Eq + PartialEq,
-    LenType: Unsigned + NonZero + ArraySize,
-    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Element as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+               + Clone,
+    LenType: NonZero + ArraySize,
+    <G::Element as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
-    fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Element as SerHySize>::SizeType, LenType>> {
+    fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Element as Size>::SizeType, LenType>> {
         self.0.serialize()
     }
 
-    fn deserialize(buffer: hybrid_array::Array<u8, Prod<<G::Element as SerHySize>::SizeType, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
-        Ok(ElementN(Repeated::<G::Element, LenType>::deserialize(buffer)?))
+    fn deserialize(buffer: hybrid_array::Array<u8, Prod<<G::Element as Size>::SizeType, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
+        Ok(ElementN(Product::<G::Element, LenType>::deserialize(buffer)?))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*; // Imports ElementN, GroupElement
-    use crate::serialization_hybrid::{FSerializable, Repeated, Size as SerHySize};
+    use crate::serialization_hybrid::{FSerializable, Product, Size as Size};
     use crate::traits::group::CryptoGroup;
     use crate::traits::scalar::GroupScalar; // For TestElement's associated type
     use hybrid_array::typenum::{Prod, Unsigned, NonZero, U3, U16, U32}; // More specific imports
@@ -109,7 +101,7 @@ mod tests {
     #[derive(Clone, Debug, PartialEq, Eq, Default)]
     pub struct TestScalar(Array<u8, U16>);
 
-    impl SerHySize for TestScalar {
+    impl Size for TestScalar {
         type SizeType = U16;
     }
     impl FSerializable<U16> for TestScalar {
@@ -137,7 +129,7 @@ mod tests {
     #[derive(Clone, Debug, PartialEq, Eq, Default)] // Added Eq
     pub struct TestElement(Array<u8, U32>); // Example size U32
 
-    impl SerHySize for TestElement {
+    impl Size for TestElement {
         type SizeType = U32;
     }
     impl FSerializable<U32> for TestElement {
@@ -187,7 +179,7 @@ mod tests {
         type ElementNSerializedLen = Prod<U32, U3>;
 
         let elements_array = Array::<TestElement, U3>::from([e1.clone(), e2.clone(), e3.clone()]);
-        let repeated_elements = Repeated(elements_array); // Use struct directly
+        let repeated_elements = Product(elements_array); // Use struct directly
         let element_n_val = ElementNTestType::new(repeated_elements);
 
         // Serialize
