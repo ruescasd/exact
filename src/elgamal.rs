@@ -108,18 +108,15 @@ impl<G: CryptoGroup> Size for ElGamal<G>
 where
     G::Element: Size + Clone,
     <G::Element as Size>::SizeType: CoreAdd<<G::Element as Size>::SizeType>, // For Sum
-    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: Unsigned + NonZero + ArraySize,
+    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: NonZero + ArraySize,
 {
     // Two elements of the same type.
     type SizeType = Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>;
-    // Alternative using Prod if we want to be more explicit about repetition of same type:
-    // type SizeType = Prod<<G::Element as Size>::SizeType, typenum::U2>;
-    // This would require G::Element::SizeType: CoreMul<U2> and Prod<...> bound. Sum is simpler.
 }
 
 impl<G: CryptoGroup> FSerializable<Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>> for ElGamal<G>
 where
-    G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + Clone + Default,
+    G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + Clone,
     <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreAdd<<G::Element as Size>::SizeType>, // Removed incorrect Sub bound
     Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: NonZero + ArraySize
                                      + core::ops::Sub<<G::Element as Size>::SizeType, Output = <G::Element as Size>::SizeType>,
@@ -171,7 +168,7 @@ where
 impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G>
 where
     G::Element: GroupElement<Scalar = G::Scalar> + Size + FSerializable<<G::Element as Size>::SizeType>,
-    G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone + Default,
+    G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone,
 {
     fn decrypt(&self, key: &KeyPair<G>) -> G::Element {
         let gr_pow_x = self.c1.scalar_mul(&key.sk); // Use self.c1 and key.sk

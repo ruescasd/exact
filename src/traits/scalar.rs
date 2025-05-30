@@ -1,4 +1,4 @@
-use crate::serialization_hybrid::{FSerializable, Product, Size as SerHySize};
+use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
 use core::fmt::Debug;
 use rand::RngCore;
@@ -7,12 +7,10 @@ use hybrid_array::ArraySize;
 use core::ops::Mul as CoreMul; // Renamed to avoid conflict with typenum::Mul if it were used
 
 use core::ops::{Add, Sub, Mul as CoreOpsMul, Neg}; // For arithmetic trait bounds
-use crate::serialization_hybrid::Error as SerError;
 
 pub trait GroupScalar:
-    SerHySize
+    Size
     + FSerializable<Self::SizeType>
-    + Default
     + Clone
     + Debug
     + PartialEq
@@ -38,42 +36,40 @@ pub trait GroupScalar:
 pub struct ExponentN<G, LenType>(pub Product<G::Scalar, LenType>)
 where
     G: CryptoGroup,
-    LenType: Unsigned + NonZero + ArraySize,
-    G::Scalar: GroupScalar + SerHySize + Clone + Default + Eq + PartialEq,
-    <G::Scalar as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Scalar as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize;
+    LenType: ArraySize,
+    G::Scalar: GroupScalar + Size,
+    <G::Scalar as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<G::Scalar as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize;
 
 impl<G, LenType> ExponentN<G, LenType>
 where
     G: CryptoGroup,
-    LenType: Unsigned + NonZero + ArraySize,
-    G::Scalar: GroupScalar + SerHySize + Clone + Default + Eq + PartialEq,
-    <G::Scalar as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Scalar as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    LenType: ArraySize,
+    G::Scalar: GroupScalar + Size,
+    <G::Scalar as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<G::Scalar as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
     pub fn new(elements: Product<G::Scalar, LenType>) -> Self {
         ExponentN(elements)
     }
 }
 
-impl<G, LenType> FSerializable<Prod<<G::Scalar as SerHySize>::SizeType, LenType>>
+impl<G, LenType> FSerializable<Prod<<G::Scalar as Size>::SizeType, LenType>>
     for ExponentN<G, LenType>
 where
     G: CryptoGroup,
     G::Scalar: GroupScalar
-               + FSerializable<<G::Scalar as SerHySize>::SizeType>
-               + SerHySize
-               + Default
-               + Clone + Eq + PartialEq,
-    LenType: Unsigned + NonZero + ArraySize,
-    <G::Scalar as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Scalar as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+               + FSerializable<<G::Scalar as Size>::SizeType>
+               + Size,
+    LenType: ArraySize,
+    <G::Scalar as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<G::Scalar as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
 {
-    fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Scalar as SerHySize>::SizeType, LenType>> {
+    fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Scalar as Size>::SizeType, LenType>> {
         self.0.serialize()
     }
 
-    fn deserialize(buffer: hybrid_array::Array<u8, Prod<<G::Scalar as SerHySize>::SizeType, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
+    fn deserialize(buffer: hybrid_array::Array<u8, Prod<<G::Scalar as Size>::SizeType, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
         Ok(ExponentN(Product::<G::Scalar, LenType>::deserialize(buffer)?))
     }
 }
@@ -81,18 +77,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::serialization_hybrid::{FSerializable, Product, Size as SerHySize, Error as SerError};
+    use crate::serialization_hybrid::{FSerializable, Product, Size as Size, Error as SerError};
     use crate::traits::group::CryptoGroup;
     use crate::traits::element::GroupElement;
-    use hybrid_array::typenum::{Prod, Unsigned, NonZero, U3, U16, U32};
-    use hybrid_array::{Array, ArraySize};
+    use hybrid_array::typenum::{Prod, Unsigned, U3, U16, U32};
+    use hybrid_array::{Array};
     use core::fmt::Debug;
     use rand::thread_rng;
     use core::ops::{Add, Sub, Mul as CoreOpsMul, Neg};
 
     #[derive(Clone, Debug, PartialEq, Eq, Default)]
     pub struct TestElementForScalarTests(Array<u8, U32>);
-    impl SerHySize for TestElementForScalarTests { type SizeType = U32; }
+    impl Size for TestElementForScalarTests { type SizeType = U32; }
     impl FSerializable<U32> for TestElementForScalarTests {
         fn serialize(&self) -> Array<u8, U32> { self.0.clone() }
         fn deserialize(buffer: Array<u8, U32>) -> Result<Self, SerError> { Ok(Self(buffer)) }
@@ -104,7 +100,7 @@ mod tests {
 
     #[derive(Clone, Debug, PartialEq, Eq, Default)]
     pub struct TestScalar(Array<u8, U16>);
-    impl SerHySize for TestScalar { type SizeType = U16; }
+    impl Size for TestScalar { type SizeType = U16; }
     impl FSerializable<U16> for TestScalar {
         fn serialize(&self) -> Array<u8, U16> { self.0.clone() }
         fn deserialize(buffer: Array<u8, U16>) -> Result<Self, SerError> { Ok(TestScalar(buffer)) }

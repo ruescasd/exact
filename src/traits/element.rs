@@ -63,8 +63,7 @@ where
     G: CryptoGroup,
     G::Element: GroupElement // Ensure G::Element is a GroupElement
                + FSerializable<<G::Element as Size>::SizeType>
-               + Size
-               + Clone,
+               + Size,
     LenType: NonZero + ArraySize,
     <G::Element as Size>::SizeType: CoreMul<LenType>,
     Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,

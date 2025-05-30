@@ -120,22 +120,16 @@ mod tests {
     }
 
     #[test]
-    fn test_product_element_serialization() { // Renamed from test_product_mystruct_serialization
-        // RistrettoElement implements Size (U32), FSerializable<U32>, Default, Clone, Eq, PartialEq
+    fn test_product_element_serialization() { 
+        
         let e1 = RistrettoElement::default();
-        // To get a different element, one might use a specific operation if available,
-        // or serialize known distinct byte patterns if from_bytes was more flexible.
-        // For simplicity, we'll use default and one variant if easily constructible,
-        // otherwise, multiple defaults are fine for testing serialization structure.
-        // RistrettoElement::default() is identity. Let's assume we can make another one.
-        // If RistrettoElement had an easy way to make a distinct one, e.g. RistrettoElement::new(some_point_not_identity)
-        // For now, just using default elements.
         let e2 = RistrettoElement::default();
         let e3 = RistrettoElement::default();
 
         let r = Product(Array::<RistrettoElement, U3>::from([e1, e2, e3]));
 
         let serialized = r.serialize();
+        let _byte_form: [u8; 96] = serialized.into();
         assert_eq!(serialized.as_slice().len(), <Prod<U32, U3> as Unsigned>::USIZE); // U32 for RistrettoElement
         assert_eq!(<Prod<U32, U3> as Unsigned>::USIZE, 32 * 3);
         let deserialized = Product::<RistrettoElement, U3>::deserialize(serialized).unwrap();
@@ -146,63 +140,3 @@ mod tests {
         assert_eq!(r.0, deserialized.0);
     }
 }
-
-
-/* 
-// u8
-impl Size for u8 { type SizeType = U1; }
-impl FSerializable<U1> for u8 {
-    fn serialize(&self) -> Array<u8, U1> {
-        Array::from([*self])
-    }
-
-    fn deserialize(buffer: Array<u8, U1>) -> Result<Self, Error> {
-        Ok(buffer.as_slice()[0])
-    }
-}
-
-// u16
-impl Size for u16 { type SizeType = U2; }
-impl FSerializable<U2> for u16 {
-    fn serialize(&self) -> Array<u8, U2> {
-        Array::from(self.to_be_bytes())
-    }
-
-    fn deserialize(buffer: Array<u8, U2>) -> Result<Self, Error> {
-        buffer.as_slice()
-            .try_into()
-            .map(u16::from_be_bytes)
-            .map_err(|_| Error::DeserializationError)
-    }
-}
-
-// u32
-impl Size for u32 { type SizeType = U4; }
-impl FSerializable<U4> for u32 {
-    fn serialize(&self) -> Array<u8, U4> {
-        Array::from(self.to_be_bytes())
-    }
-
-    fn deserialize(buffer: Array<u8, U4>) -> Result<Self, Error> {
-        buffer.as_slice()
-            .try_into()
-            .map(u32::from_be_bytes)
-            .map_err(|_| Error::DeserializationError)
-    }
-}
-
-// u64
-impl Size for u64 { type SizeType = U8; }
-impl FSerializable<U8> for u64 {
-    fn serialize(&self) -> Array<u8, U8> {
-        Array::from(self.to_be_bytes())
-    }
-
-    fn deserialize(buffer: Array<u8, U8>) -> Result<Self, Error> {
-        buffer.as_slice()
-            .try_into()
-            .map(u64::from_be_bytes)
-            .map_err(|_| Error::DeserializationError)
-    }
-}
-*/
