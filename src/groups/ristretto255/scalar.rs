@@ -1,12 +1,14 @@
-use crate::serialization::{FSerializable, Size};
+use crate::serialization_hybrid::{Error as SerError, FSerializable, Size as SerHySize}; // Updated imports
 use crate::traits::scalar::GroupScalar;
-use curve25519_dalek::digest::generic_array::typenum::U64; // Added import
+use curve25519_dalek::digest::generic_array::typenum::U64;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
 use rand::RngCore;
-use sha3::digest::Digest; // Changed path // For random generation
+use sha3::digest::Digest;
+use hybrid_array::typenum::U32; // Using U32 for size
+use hybrid_array::Array as HybridArray; // Using HybridArray
 
-#[derive(Clone, Debug, PartialEq)] // Added PartialEq
-pub struct RistrettoScalar(pub DalekScalar); // Renamed Exponent to RistrettoScalar
+#[derive(Clone, Debug, PartialEq, Eq)] // Added Eq
+pub struct RistrettoScalar(pub DalekScalar);
 
 impl RistrettoScalar {
     /// Creates a new RistrettoScalar from a dalek Scalar.
@@ -24,7 +26,7 @@ impl RistrettoScalar {
     // and not covered by GroupScalar trait. For now, new() and from_hash() are key.
 }
 
-impl GroupScalar<{ Self::SIZE }> for RistrettoScalar {
+impl GroupScalar<U32> for RistrettoScalar { // GroupScalar now expects a typenum type
     fn zero() -> Self {
         RistrettoScalar(DalekScalar::ZERO)
     }
@@ -54,8 +56,6 @@ impl GroupScalar<{ Self::SIZE }> for RistrettoScalar {
     }
 
     fn invert(&self) -> Option<Self> {
-        // Dalek Scalar invert returns the original scalar if it's zero,
-        // which is not what we want for an Option. It should be None for zero.
         if self.0 == DalekScalar::ZERO {
             None
         } else {
@@ -64,24 +64,66 @@ impl GroupScalar<{ Self::SIZE }> for RistrettoScalar {
     }
 }
 
-impl Size for RistrettoScalar {
-    const SIZE: usize = 32; // Dalek Scalar is 32 bytes
+impl SerHySize for RistrettoScalar {
+    type SizeType = U32;
 }
 
-impl FSerializable<32> for RistrettoScalar {
-    fn read_bytes(bytes: [u8; 32]) -> Self {
-        // Changed Self::SIZE to 32
-        // The old Exponent::parse used Scalar::from_canonical_bytes(bytes).unwrap()
-        // This is a good place to ensure robust error handling if from_canonical_bytes can fail.
-        // For now, maintaining unwrap to match, but this could be a point of refinement.
-        match DalekScalar::from_canonical_bytes(bytes).into() {
-            Some(s) => RistrettoScalar(s),
-            None => panic!("Failed to parse RistrettoScalar from canonical bytes"), // Or return Result
-        }
+impl FSerializable<U32> for RistrettoScalar {
+    fn serialize(&self) -> HybridArray<u8, U32> {
+        HybridArray::from(self.0.to_bytes())
     }
 
-    fn write_bytes(&self) -> [u8; 32] {
-        // Changed Self::SIZE to 32
-        self.0.to_bytes()
+    fn deserialize(buffer: HybridArray<u8, U32>) -> Result<Self, SerError> {
+        // DalekScalar::from_canonical_bytes returns CtOption<DalekScalar>
+        // Convert CtOption to Option, then to Result<RistrettoScalar, SerError>
+        match DalekScalar::from_canonical_bytes(buffer.0).into() { // Use .0 and .into()
+            Some(s) => Ok(RistrettoScalar(s)),
+            None => Err(SerError::DeserializationError),
+        }
+    }
+}
+
+// Add Default implementation if not already present and needed by GroupScalar or other uses.
+// DalekScalar::ZERO can be used for a default.
+impl Default for RistrettoScalar {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; // RistrettoScalar
+    use crate::serialization_hybrid::{FSerializable, Size as SerHySize};
+    use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
+    use rand::thread_rng;
+
+    #[test]
+    fn test_ristretto_scalar_hybrid_serialization() {
+        let mut rng = thread_rng();
+        let scalar = RistrettoScalar::random(&mut rng); // Test with a random scalar
+
+        // Serialize
+        let serialized_data = scalar.serialize();
+        assert_eq!(serialized_data.as_slice().len(), U32::USIZE, "Serialized length mismatch");
+
+        // Deserialize
+        let deserialized_scalar = RistrettoScalar::deserialize(serialized_data).expect("Deserialization failed");
+
+        assert_eq!(scalar, deserialized_scalar, "Original and deserialized scalars do not match");
+
+        // Test zero
+        let zero_scalar = RistrettoScalar::zero();
+        let serialized_zero = zero_scalar.serialize();
+        assert_eq!(serialized_zero.as_slice().len(), U32::USIZE);
+        let deserialized_zero = RistrettoScalar::deserialize(serialized_zero).expect("Deserialization failed");
+        assert_eq!(zero_scalar, deserialized_zero);
+
+        // Test one
+        let one_scalar = RistrettoScalar::one();
+        let serialized_one = one_scalar.serialize();
+        assert_eq!(serialized_one.as_slice().len(), U32::USIZE);
+        let deserialized_one = RistrettoScalar::deserialize(serialized_one).expect("Deserialization failed");
+        assert_eq!(one_scalar, deserialized_one);
     }
 }

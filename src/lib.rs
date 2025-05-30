@@ -14,7 +14,7 @@ pub mod utils; // Keep utils for now, may be needed by serialization_hybrid or b
 
 // Concrete Implementations & Schemes
 // pub mod elgamal; // Commented out due to generic_const_exprs errors
-// pub mod groups; // Commented out due to dependency on traits/serialization
+pub mod groups; // Uncommented
 // pub mod zkp; // Commented out due to generic_const_exprs errors
 
 // pub mod arithmetic; // Correctly remains removed/commented

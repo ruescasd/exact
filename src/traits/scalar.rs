@@ -76,8 +76,8 @@ where
         self.0.serialize() // Delegate to Repeated's implementation
     }
 
-    fn deserialize(buffer: hybrid_array::Array<u8, Prod<G::ScalarSerializedSize, LenType>>) -> Self {
-        ExponentN(Repeated::<G::Scalar, LenType>::deserialize(buffer)) // Delegate
+    fn deserialize(buffer: hybrid_array::Array<u8, Prod<G::ScalarSerializedSize, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
+        Ok(ExponentN(Repeated::<G::Scalar, LenType>::deserialize(buffer)?)) // Delegate and handle Result
     }
 }
 
@@ -105,7 +105,7 @@ mod tests {
     impl SerHySize for TestElementForScalarTests { type SizeType = U32; }
     impl FSerializable<U32> for TestElementForScalarTests {
         fn serialize(&self) -> Array<u8, U32> { self.0.clone() }
-        fn deserialize(buffer: Array<u8, U32>) -> Self { Self(buffer) }
+        fn deserialize(buffer: Array<u8, U32>) -> Result<Self, crate::serialization_hybrid::Error> { Ok(Self(buffer)) }
     }
     // Forward GroupScalar needed by GroupElement's Scalar associated type
     #[derive(Clone, Debug, PartialEq, Eq, Default)] // Added Eq
@@ -113,7 +113,7 @@ mod tests {
     impl SerHySize for TestScalarForElementTests { type SizeType = U16; }
     impl FSerializable<U16> for TestScalarForElementTests {
         fn serialize(&self) -> Array<u8, U16> { self.0.clone() }
-        fn deserialize(buffer: Array<u8, U16>) -> Self { Self(buffer) }
+        fn deserialize(buffer: Array<u8, U16>) -> Result<Self, crate::serialization_hybrid::Error> { Ok(Self(buffer)) }
     }
     impl GroupScalar<U16> for TestScalarForElementTests { // Actual scalar trait
         fn zero() -> Self { Default::default() } fn one() -> Self { Default::default() }
@@ -140,7 +140,7 @@ mod tests {
     }
     impl FSerializable<U16> for TestScalar {
         fn serialize(&self) -> Array<u8, U16> { self.0.clone() }
-        fn deserialize(buffer: Array<u8, U16>) -> Self { TestScalar(buffer) }
+        fn deserialize(buffer: Array<u8, U16>) -> Result<Self, crate::serialization_hybrid::Error> { Ok(TestScalar(buffer)) }
     }
     impl GroupScalar<U16> for TestScalar {
         fn zero() -> Self { TestScalar::default() }
@@ -207,7 +207,9 @@ mod tests {
         assert_eq!(serialized_bytes.as_slice(), expected_bytes.as_slice());
 
         // Deserialize
-        let deserialized_exponent_n = ExponentNTestType::deserialize(serialized_bytes);
+        let deserialized_exponent_n_result = ExponentNTestType::deserialize(serialized_bytes);
+        assert!(deserialized_exponent_n_result.is_ok());
+        let deserialized_exponent_n = deserialized_exponent_n_result.unwrap();
 
         // Assert equality
         assert_eq!(exponent_n_val.0.0, deserialized_exponent_n.0.0);

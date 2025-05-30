@@ -1,12 +1,14 @@
-use crate::groups::ristretto255::scalar::RistrettoScalar; // Path to our new RistrettoScalar
-use crate::serialization::{FSerializable, Size};
+use crate::groups::ristretto255::scalar::RistrettoScalar;
+use crate::serialization_hybrid::{Error as SerError, FSerializable, Size as SerHySize}; // Updated imports
 use crate::traits::element::GroupElement;
 use core::fmt::Debug;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::traits::Identity; // Already in scope usually, but good to be explicit if needed
+use curve25519_dalek::traits::Identity;
+use hybrid_array::typenum::U32; // Using U32 for size
+use hybrid_array::Array as HybridArray; // Using HybridArray
 
-#[derive(Clone, Debug, PartialEq)] // Added PartialEq
-pub struct RistrettoElement(pub RistrettoPoint); // Renamed Element to RistrettoElement
+#[derive(Clone, Debug, PartialEq, Eq)] // Added Eq
+pub struct RistrettoElement(pub RistrettoPoint);
 
 impl RistrettoElement {
     /// Creates a new RistrettoElement from a dalek RistrettoPoint.
@@ -17,7 +19,8 @@ impl RistrettoElement {
     // and not covered by GroupElement trait.
 }
 
-impl GroupElement<{ Self::SIZE }, { RistrettoScalar::SIZE }> for RistrettoElement {
+// GroupElement now expects typenum types for sizes. Assuming RistrettoScalar will also be U32.
+impl GroupElement<U32, U32> for RistrettoElement {
     type Scalar = RistrettoScalar;
 
     fn identity() -> Self {
@@ -33,28 +36,71 @@ impl GroupElement<{ Self::SIZE }, { RistrettoScalar::SIZE }> for RistrettoElemen
     }
 
     fn scalar_mul(&self, scalar: &Self::Scalar) -> Self {
-        RistrettoElement(self.0 * scalar.0) // scalar.0 to access inner DalekScalar
+        RistrettoElement(self.0 * scalar.0)
     }
 }
 
-impl Size for RistrettoElement {
-    const SIZE: usize = 32; // CompressedRistretto is 32 bytes
+impl SerHySize for RistrettoElement {
+    type SizeType = U32;
 }
 
-impl FSerializable<32> for RistrettoElement {
-    fn read_bytes(bytes: [u8; 32]) -> Self {
-        // Changed Self::SIZE to 32
-        // Old Element::parse used CompressedRistretto(bytes).decompress().unwrap()
-        // This can panic if bytes are not a valid point.
-        // Consider returning Result if robust error handling is added later.
-        match CompressedRistretto(bytes).decompress() {
-            Some(point) => RistrettoElement(point),
-            None => panic!("Failed to decompress RistrettoElement from bytes"), // Or return Result
+impl FSerializable<U32> for RistrettoElement {
+    fn serialize(&self) -> HybridArray<u8, U32> {
+        HybridArray::from(self.0.compress().to_bytes())
+    }
+
+    fn deserialize(buffer: HybridArray<u8, U32>) -> Result<Self, SerError> {
+        // buffer.0 gives the inner [u8; N] array
+        match CompressedRistretto(buffer.0).decompress() {
+            Some(point) => Ok(RistrettoElement(point)),
+            None => Err(SerError::DeserializationError),
         }
     }
+}
 
-    fn write_bytes(&self) -> [u8; 32] {
-        // Changed Self::SIZE to 32
-        self.0.compress().to_bytes()
+// Add Default implementation if not already present and needed by GroupElement or other uses.
+// RistrettoPoint::identity() can be used for a default.
+impl Default for RistrettoElement {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; // RistrettoElement
+    use crate::serialization_hybrid::{FSerializable, Size as SerHySize};
+    use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
+    use crate::traits::scalar::GroupScalar; // Added GroupScalar for ::one()
+    // RistrettoElement::identity() and other methods can be used to get instances.
+
+    #[test]
+    fn test_ristretto_element_hybrid_serialization() {
+        let element = RistrettoElement::identity();
+
+        // Serialize
+        let serialized_data = element.serialize();
+        assert_eq!(serialized_data.as_slice().len(), U32::USIZE, "Serialized length mismatch");
+
+        // Deserialize
+        let deserialized_element = RistrettoElement::deserialize(serialized_data).expect("Deserialization failed");
+
+        assert_eq!(element, deserialized_element, "Original and deserialized elements do not match");
+
+        // Test with a non-identity element if possible (e.g., generator if easily accessible or another known point)
+        // For Ristretto, the generator is not directly exposed in RistrettoElement itself,
+        // but through CryptoGroup. For a self-contained test, identity is fine.
+        // If we had a Ristretto255Group instance here (which might be complex for a unit test),
+        // we could get TestGroup::generator().
+        // Let's try scalar multiplication of identity by one (which should be identity)
+        // Need a RistrettoScalar for this.
+        let scalar_one = RistrettoScalar::one(); // Assuming RistrettoScalar is accessible and has one()
+        let another_element = element.scalar_mul(&scalar_one); // identity * 1 = identity
+
+        let serialized_another = another_element.serialize();
+        assert_eq!(serialized_another.as_slice().len(), U32::USIZE);
+        let deserialized_another = RistrettoElement::deserialize(serialized_another).expect("Deserialization failed");
+        assert_eq!(another_element, deserialized_another);
+        assert_eq!(element, another_element); // identity * 1 = identity
     }
 }

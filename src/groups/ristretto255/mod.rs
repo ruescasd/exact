@@ -5,10 +5,11 @@ pub use element::RistrettoElement;
 pub use scalar::RistrettoScalar;
 
 use crate::traits::group::CryptoGroup;
-// use crate::traits::element::GroupElement; // Not strictly needed here, but good for context
-// use crate::traits::scalar::GroupScalar;   // Not strictly needed here, but good for context
-use crate::serialization::Size;
+// use crate::traits::element::GroupElement;
+// use crate::traits::scalar::GroupScalar;
+// Remove old Size import
 use crate::utils; // For utils::hash
+use hybrid_array::typenum::U32; // Import U32 for defining sizes
 
 use curve25519_dalek::constants as dalek_constants;
 use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
@@ -18,8 +19,8 @@ use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
 pub struct Ristretto255Group;
 
 impl CryptoGroup for Ristretto255Group {
-    const ELEMENT_SERIALIZED_SIZE: usize = RistrettoElement::SIZE;
-    const SCALAR_SERIALIZED_SIZE: usize = RistrettoScalar::SIZE;
+    type ElementSerializedSize = U32; // Both are 32 bytes for Ristretto255
+    type ScalarSerializedSize = U32;
 
     type Element = RistrettoElement;
     type Scalar = RistrettoScalar;

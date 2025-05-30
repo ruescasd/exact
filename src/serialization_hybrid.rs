@@ -8,6 +8,29 @@ use hybrid_array::{
 
 // Use the specific imports needed
 use core::ops::{Add as CoreAdd, Mul as CoreMul, Sub as CoreSub}; // Alias for core::ops operators
+use core::fmt; // For Error Display
+
+// Define a simple Error type for serialization/deserialization failures
+#[derive(Debug, PartialEq, Eq)] // Added PartialEq, Eq for error comparison in tests if needed
+pub enum Error {
+    DeserializationError,
+    SerializationError, // If needed later
+    Custom(String),     // For more specific errors
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::DeserializationError => write!(f, "Deserialization failed"),
+            Error::SerializationError => write!(f, "Serialization failed"),
+            Error::Custom(s) => write!(f, "Serialization error: {}", s),
+        }
+    }
+}
+
+// Required for std::error::Error (optional, but good practice)
+// impl std::error::Error for Error {}
+// ^ This requires std, but the crate might be no_std. Let's skip this for now.
 
 pub trait Size {
     // Ensure SizeType itself must be NonZero for FSerializable's S parameter.
@@ -17,7 +40,8 @@ pub trait Size {
 // New FSerializable trait definition
 pub trait FSerializable<S: typenum::Unsigned + typenum::NonZero + ArraySize>: Sized {
     fn serialize(&self) -> Array<u8, S>;
-    fn deserialize(buffer: Array<u8, S>) -> Self;
+    // Changed deserialize to return Result<Self, Error>
+    fn deserialize(buffer: Array<u8, S>) -> Result<Self, Error>;
 }
 
 
@@ -89,24 +113,25 @@ where
         arr1.concat(arr2)
     }
 
-    fn deserialize(buffer: Array<u8, Sum<A::SizeType, B::SizeType>>) -> Self {
-        let (view1, view2) = buffer.split::<A::SizeType>(); // Split by A's size
-        let arr1 = view1.to_owned(); // Changed from into_owned
-        let arr2 = view2.to_owned(); // Changed from into_owned
-        let val_a = A::deserialize(arr1);
-        let val_b = B::deserialize(arr2);
-        Product(val_a, val_b)
+    fn deserialize(buffer: Array<u8, Sum<A::SizeType, B::SizeType>>) -> Result<Self, Error> {
+        let (view1, view2) = buffer.split::<A::SizeType>();
+        let arr1 = view1.to_owned();
+        let arr2 = view2.to_owned();
+        // A::deserialize and B::deserialize now return Result
+        let val_a = A::deserialize(arr1)?;
+        let val_b = B::deserialize(arr2)?;
+        Ok(Product(val_a, val_b))
     }
 }
 
 // Define the Repeated<T, NLen> struct (N_LEN -> NLen)
-#[derive(Debug, Clone, PartialEq, Eq)] // Added PartialEq, Eq for testing. Requires T: PartialEq, Eq
-pub struct Repeated<T, NLen: ArraySize>(pub Array<T, NLen>) where T: PartialEq + Eq; // Added T: PartialEq + Eq here for the struct itself
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Repeated<T, NLen: ArraySize>(pub Array<T, NLen>) where T: PartialEq + Eq;
 
 // Implement FSerializable for Repeated<T, NLen>
 impl<T, NLen> FSerializable<Prod<T::SizeType, NLen>> for Repeated<T, NLen>
 where
-    T: FSerializable<T::SizeType> + Size + Default + PartialEq + Eq, // Added PartialEq + Eq for assert_eq on Repeated
+    T: FSerializable<T::SizeType> + Size + Default + PartialEq + Eq,
     T::SizeType: typenum::Unsigned + typenum::NonZero + ArraySize + CoreMul<NLen>,
     NLen: typenum::Unsigned + typenum::NonZero + ArraySize,
     Prod<T::SizeType, NLen>: typenum::Unsigned + typenum::NonZero + ArraySize,
@@ -129,7 +154,7 @@ where
         result
     }
 
-    fn deserialize(buffer: Array<u8, Prod<T::SizeType, NLen>>) -> Self {
+    fn deserialize(buffer: Array<u8, Prod<T::SizeType, NLen>>) -> Result<Self, Error> {
         let mut deserialized_items_array = Array::<T, NLen>::default();
 
         for i in 0..NLen::USIZE {
@@ -139,9 +164,10 @@ where
             let mut item_buffer = Array::<u8, T::SizeType>::default();
             item_buffer.as_mut_slice().copy_from_slice(&buffer.as_slice()[start..end]);
 
-            deserialized_items_array.as_mut_slice()[i] = T::deserialize(item_buffer);
+            // T::deserialize now returns Result
+            deserialized_items_array.as_mut_slice()[i] = T::deserialize(item_buffer)?;
         }
-        Repeated(deserialized_items_array)
+        Ok(Repeated(deserialized_items_array))
     }
 }
 
@@ -186,38 +212,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*; // Import items from the parent module (serialization_hybrid)
-    // U1, U2, U4, U5, U8 etc. are already imported via the main typenum import at the top of the file.
-    // No need for: use hybrid_array::typenum::{U2, U4, U8};
+    use super::*;
+    use crate::groups::ristretto255::RistrettoElement;
+    // Explicitly import typenum constants used in this module's tests for clarity/resolution
+    use hybrid_array::typenum::{U1, U2, U3, U4, U5, U8, U32, Sum, Prod, Unsigned};
 
-    // Test struct
-    #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)] // Added Default
-    struct MyStruct {
-        val: u32,
-    }
-
-    impl Size for MyStruct {
-        type SizeType = U4;
-    }
-
-    // Implement FSerializable for MyStruct for testing purposes
-    impl FSerializable<U4> for MyStruct {
-        fn serialize(&self) -> Array<u8, U4> {
-            Array::from(self.val.to_be_bytes()) // Using big-endian for consistency
-        }
-        fn deserialize(buffer: Array<u8, U4>) -> Self {
-            MyStruct {
-                val: u32::from_be_bytes(buffer.as_slice().try_into().unwrap()),
-            }
-        }
-    }
+    // MyStruct and its impls are removed.
 
     #[test]
     fn test_u8_serialization() {
         let val: u8 = 0xAB;
         let serialized = val.serialize();
         assert_eq!(serialized.as_slice().len(), U1::USIZE);
-        let deserialized = u8::deserialize(serialized);
+        let deserialized = u8::deserialize(serialized).unwrap();
         assert_eq!(val, deserialized);
     }
 
@@ -226,17 +233,17 @@ mod tests {
         let val: u16 = 0xABCD;
         let serialized = val.serialize();
         assert_eq!(serialized.as_slice().len(), U2::USIZE);
-        let deserialized = u16::deserialize(serialized);
+        let deserialized = u16::deserialize(serialized).unwrap();
         assert_eq!(val, deserialized);
 
         let val_zero: u16 = 0;
         let serialized_zero = val_zero.serialize();
-        let deserialized_zero = u16::deserialize(serialized_zero);
+        let deserialized_zero = u16::deserialize(serialized_zero).unwrap();
         assert_eq!(val_zero, deserialized_zero);
 
         let val_max: u16 = u16::MAX;
         let serialized_max = val_max.serialize();
-        let deserialized_max = u16::deserialize(serialized_max);
+        let deserialized_max = u16::deserialize(serialized_max).unwrap();
         assert_eq!(val_max, deserialized_max);
     }
 
@@ -245,7 +252,7 @@ mod tests {
         let val: u32 = 0x12345678;
         let serialized = val.serialize();
         assert_eq!(serialized.as_slice().len(), U4::USIZE);
-        let deserialized = u32::deserialize(serialized);
+        let deserialized = u32::deserialize(serialized).unwrap();
         assert_eq!(val, deserialized);
     }
 
@@ -254,72 +261,70 @@ mod tests {
         let val: u64 = 0x123456789ABCDEF0;
         let serialized = val.serialize();
         assert_eq!(serialized.as_slice().len(), U8::USIZE);
-        let deserialized = u64::deserialize(serialized);
+        let deserialized = u64::deserialize(serialized).unwrap();
         assert_eq!(val, deserialized);
     }
 
     #[test]
-    fn test_product_serialization() {
-        // A and B need to implement Size for Product's FSerializable bound
-        // u16 and u32 have FSerializable<U2> and FSerializable<U4> respectively.
-        // They also need to implement Size. These are now at module level.
-        // MyStruct already has Size impl (U4) and FSerializable<U4>
-
-        let p = Product(MyStruct { val: 0xCAFEBABE }, 0xABCD_u16);
-        let serialized: Array<u8, Sum<U4, U2>> = p.serialize();
-        assert_eq!(serialized.as_slice().len(), <Sum<U4, U2> as Unsigned>::USIZE);
-        let deserialized = Product::<MyStruct, u16>::deserialize(serialized);
+    fn test_product_element_serialization() { // Renamed from test_product_serialization
+        // RistrettoElement implements Size (U32) and FSerializable<U32>
+        // u16 implements Size (U2) and FSerializable<U2>
+        let p = Product(RistrettoElement::default(), 0xABCD_u16);
+        let serialized: Array<u8, Sum<U32, U2>> = p.serialize(); // U32 for RistrettoElement
+        assert_eq!(serialized.as_slice().len(), <Sum<U32, U2> as Unsigned>::USIZE);
+        let deserialized = Product::<RistrettoElement, u16>::deserialize(serialized).unwrap();
         assert_eq!(p.0, deserialized.0);
         assert_eq!(p.1, deserialized.1);
     }
 
     #[test]
     fn test_product_basic_types_serialization() {
-        // Size impls for u16 and u32 are now at module level.
-
         let p = Product(0xABCD_u16, 0x12345678_u32);
         let serialized: Array<u8, Sum<U2, U4>> = p.serialize();
         assert_eq!(serialized.as_slice().len(), <Sum<U2, U4> as Unsigned>::USIZE);
         assert_eq!(<Sum<U2, U4> as Unsigned>::USIZE, 6);
-        let deserialized = Product::<u16, u32>::deserialize(serialized);
+        let deserialized = Product::<u16, u32>::deserialize(serialized).unwrap();
         assert_eq!(p.0, deserialized.0);
         assert_eq!(p.1, deserialized.1);
     }
 
     #[test]
     fn test_repeated_u8_serialization() {
-        // Size impl for u8 is now at module level.
-
         let data_slice = &[10, 20, 30, 40, 50];
         let r = Repeated(Array::<u8, U5>::from(*data_slice));
 
         let serialized = r.serialize();
         assert_eq!(serialized.as_slice().len(), <Prod<U1, U5> as Unsigned>::USIZE);
         assert_eq!(<Prod<U1, U5> as Unsigned>::USIZE, 5);
-        let deserialized = Repeated::<u8, U5>::deserialize(serialized);
+        let deserialized = Repeated::<u8, U5>::deserialize(serialized).unwrap();
         assert_eq!(r.0.as_slice(), deserialized.0.as_slice());
     }
 
     #[test]
-    fn test_repeated_mystruct_serialization() {
-        // MyStruct already has Size impl (U4) and FSerializable<U4>
-        // MyStruct is also Default now.
+    fn test_repeated_element_serialization() { // Renamed from test_repeated_mystruct_serialization
+        // RistrettoElement implements Size (U32), FSerializable<U32>, Default, Clone, Eq, PartialEq
+        let e1 = RistrettoElement::default();
+        // To get a different element, one might use a specific operation if available,
+        // or serialize known distinct byte patterns if from_bytes was more flexible.
+        // For simplicity, we'll use default and one variant if easily constructible,
+        // otherwise, multiple defaults are fine for testing serialization structure.
+        // RistrettoElement::default() is identity. Let's assume we can make another one.
+        // If RistrettoElement had an easy way to make a distinct one, e.g. RistrettoElement::new(some_point_not_identity)
+        // For now, just using default elements.
+        let e2 = RistrettoElement::default();
+        let e3 = RistrettoElement::default();
 
-        let item1 = MyStruct { val: 1001 };
-        let item2 = MyStruct { val: 2002 };
-        let item3 = MyStruct { val: 3003 };
-
-        let r = Repeated(Array::<MyStruct, U3>::from([item1, item2, item3]));
+        let r = Repeated(Array::<RistrettoElement, U3>::from([e1, e2, e3]));
 
         let serialized = r.serialize();
-        assert_eq!(serialized.as_slice().len(), <Prod<U4, U3> as Unsigned>::USIZE);
-        assert_eq!(<Prod<U4, U3> as Unsigned>::USIZE, 12);
-        let deserialized = Repeated::<MyStruct, U3>::deserialize(serialized);
+        assert_eq!(serialized.as_slice().len(), <Prod<U32, U3> as Unsigned>::USIZE); // U32 for RistrettoElement
+        assert_eq!(<Prod<U32, U3> as Unsigned>::USIZE, 32 * 3);
+        let deserialized = Repeated::<RistrettoElement, U3>::deserialize(serialized).unwrap();
 
         assert_eq!(r.0.as_slice()[0], deserialized.0.as_slice()[0]);
         assert_eq!(r.0.as_slice()[1], deserialized.0.as_slice()[1]);
         assert_eq!(r.0.as_slice()[2], deserialized.0.as_slice()[2]);
-        assert_eq!(r.0.as_slice(), deserialized.0.as_slice()); // Should work if MyStruct is PartialEq
+        assert_eq!(r.0, deserialized.0);
     }
 }
 
@@ -332,8 +337,8 @@ impl FSerializable<U1> for u8 {
         Array::from([*self])
     }
 
-    fn deserialize(buffer: Array<u8, U1>) -> Self {
-        buffer.as_slice()[0]
+    fn deserialize(buffer: Array<u8, U1>) -> Result<Self, Error> {
+        Ok(buffer.as_slice()[0])
     }
 }
 
@@ -344,8 +349,11 @@ impl FSerializable<U2> for u16 {
         Array::from(self.to_be_bytes())
     }
 
-    fn deserialize(buffer: Array<u8, U2>) -> Self {
-        u16::from_be_bytes(buffer.as_slice().try_into().expect("Slice to [u8; 2] conversion failed for u16"))
+    fn deserialize(buffer: Array<u8, U2>) -> Result<Self, Error> {
+        buffer.as_slice()
+            .try_into()
+            .map(u16::from_be_bytes)
+            .map_err(|_| Error::DeserializationError)
     }
 }
 
@@ -356,8 +364,11 @@ impl FSerializable<U4> for u32 {
         Array::from(self.to_be_bytes())
     }
 
-    fn deserialize(buffer: Array<u8, U4>) -> Self {
-        u32::from_be_bytes(buffer.as_slice().try_into().expect("Slice to [u8; 4] conversion failed for u32"))
+    fn deserialize(buffer: Array<u8, U4>) -> Result<Self, Error> {
+        buffer.as_slice()
+            .try_into()
+            .map(u32::from_be_bytes)
+            .map_err(|_| Error::DeserializationError)
     }
 }
 
@@ -368,7 +379,10 @@ impl FSerializable<U8> for u64 {
         Array::from(self.to_be_bytes())
     }
 
-    fn deserialize(buffer: Array<u8, U8>) -> Self {
-        u64::from_be_bytes(buffer.as_slice().try_into().expect("Slice to [u8; 8] conversion failed for u64"))
+    fn deserialize(buffer: Array<u8, U8>) -> Result<Self, Error> {
+        buffer.as_slice()
+            .try_into()
+            .map(u64::from_be_bytes)
+            .map_err(|_| Error::DeserializationError)
     }
 }

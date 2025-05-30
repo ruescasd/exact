@@ -73,8 +73,8 @@ where
         self.0.serialize() // Delegate to Repeated's implementation
     }
 
-    fn deserialize(buffer: hybrid_array::Array<u8, Prod<G::ElementSerializedSize, LenType>>) -> Self {
-        ElementN(Repeated::<G::Element, LenType>::deserialize(buffer)) // Delegate
+    fn deserialize(buffer: hybrid_array::Array<u8, Prod<G::ElementSerializedSize, LenType>>) -> Result<Self, crate::serialization_hybrid::Error> {
+        Ok(ElementN(Repeated::<G::Element, LenType>::deserialize(buffer)?)) // Delegate and handle Result
     }
 }
 
@@ -99,7 +99,7 @@ mod tests {
     }
     impl FSerializable<U16> for TestScalar {
         fn serialize(&self) -> Array<u8, U16> { self.0.clone() }
-        fn deserialize(buffer: Array<u8, U16>) -> Self { TestScalar(buffer) }
+        fn deserialize(buffer: Array<u8, U16>) -> Result<Self, crate::serialization_hybrid::Error> { Ok(TestScalar(buffer)) }
     }
     impl GroupScalar<U16> for TestScalar {
         fn zero() -> Self { TestScalar::default() }
@@ -121,7 +121,7 @@ mod tests {
     }
     impl FSerializable<U32> for TestElement {
         fn serialize(&self) -> Array<u8, U32> { self.0.clone() }
-        fn deserialize(buffer: Array<u8, U32>) -> Self { TestElement(buffer) }
+        fn deserialize(buffer: Array<u8, U32>) -> Result<Self, crate::serialization_hybrid::Error> { Ok(TestElement(buffer)) }
     }
     impl GroupElement<U32, U16> for TestElement { // U32 for Element, U16 for Scalar
         type Scalar = TestScalar;
@@ -177,7 +177,9 @@ mod tests {
         assert_eq!(serialized_bytes.as_slice(), expected_bytes.as_slice());
 
         // Deserialize
-        let deserialized_element_n = ElementNTestType::deserialize(serialized_bytes);
+        let deserialized_element_n_result = ElementNTestType::deserialize(serialized_bytes);
+        assert!(deserialized_element_n_result.is_ok());
+        let deserialized_element_n = deserialized_element_n_result.unwrap();
 
         // Assert equality
         assert_eq!(element_n_val.0.0.as_slice()[0], deserialized_element_n.0.0.as_slice()[0]);
