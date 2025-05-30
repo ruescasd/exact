@@ -1,132 +1,160 @@
-use crate::serialization::{FSerializable, Pair, Product, Size};
+use crate::serialization_hybrid::{
+    Error as SerHyError, FSerializable, Product, Repeated, Size as SerHySize,
+};
 use crate::traits::element::{ElementN, GroupElement};
 use crate::traits::group::CryptoGroup;
-use crate::traits::scalar::GroupScalar; // ExponentN removed from this line
-// use curve25519_dalek::ristretto::RistrettoPoint; // Removed as per instruction
-// curve25519_dalek::Scalar might be unused now at top level
+use crate::traits::scalar::GroupScalar;
+use hybrid_array::typenum::{Sum, Prod, Unsigned, NonZero}; // Assuming U<N> will come from specific type defs
+use hybrid_array::{Array, ArraySize};
+use core::ops::{Add as CoreAdd, Mul as CoreMul}; // For typenum arithmetic bounds
 use rand;
 
-// Exponent and Element structs and their impls were removed from here
-
 // --- New Trait Definitions ---
-pub trait Encryptable<G: CryptoGroup, C>
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
+// These traits might need to be moved or adapted if G::ElementSerializedSize etc. are no longer available.
+// For now, we assume G::Element and G::Scalar implement SerHySize and FSerializable with their own SizeType.
+pub trait Encryptable<G: CryptoGroup, C> {
     fn encrypt(&self, key: &KeyPair<G>) -> C;
 }
 
-pub trait Decryptable<G: CryptoGroup, P>
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
+pub trait Decryptable<G: CryptoGroup, P> {
     fn decrypt(&self, key: &KeyPair<G>) -> P;
 }
 // --- End New Trait Definitions ---
 
-pub struct ElGamal<G: CryptoGroup>(Pair<G::Element, G::Element>)
+// KeyPair: sk (Scalar), pk (Element)
+// Old: KeyPair(Pair<G::Element, G::Scalar>)
+#[derive(Debug, Clone, PartialEq, Eq)] // Assuming G::Element and G::Scalar are Clone, PartialEq, Eq
+pub struct KeyPair<G: CryptoGroup>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:;
-
-impl<G: CryptoGroup> ElGamal<G>
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    G::Element: Clone + PartialEq + Eq, // Adding bounds here for derive
+    G::Scalar: Clone + PartialEq + Eq,
 {
-    pub fn new(gr: G::Element, mhr: G::Element) -> Self {
-        ElGamal(Pair { fst: gr, snd: mhr })
-    }
-
-    pub fn gr(&self) -> G::Element {
-        self.0.fst.clone()
-    }
-
-    pub fn mhr(&self) -> G::Element {
-        self.0.snd.clone()
-    }
-
-    // Old ElGamal::decrypt(skey: &Exponent) method removed.
-    // Decryption is now handled by the Decryptable trait implementation.
+    pub sk: G::Scalar,
+    pub pk: G::Element,
 }
-impl<G: CryptoGroup> Size for ElGamal<G>
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
-    const SIZE: usize = G::ELEMENT_SERIALIZED_SIZE * 2;
-}
-impl<G: CryptoGroup> FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * 2 }> for ElGamal<G>
-where
-    Pair<G::Element, G::Element>: FSerializable<{ G::ELEMENT_SERIALIZED_SIZE * 2 }>,
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
-    fn read_bytes(bytes: [u8; G::ELEMENT_SERIALIZED_SIZE * 2]) -> Self {
-        let pair = Pair::<G::Element, G::Element>::read_bytes(bytes);
-        ElGamal(pair)
-    }
-    fn write_bytes(&self) -> [u8; G::ELEMENT_SERIALIZED_SIZE * 2] {
-        self.0.write_bytes()
-    }
-}
-
-pub struct KeyPair<G: CryptoGroup>(Pair<G::Element, G::Scalar>)
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:;
 
 impl<G: CryptoGroup> KeyPair<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    G::Element: Clone + PartialEq + Eq,
+    G::Scalar: Clone + PartialEq + Eq,
 {
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
-        let secret_scalar = G::Scalar::random(&mut rng);
-        let public_element = G::generator().scalar_mul(&secret_scalar);
-        let pair = Pair {
-            fst: public_element,
-            snd: secret_scalar,
-        };
-        KeyPair(pair)
+        let sk = G::Scalar::random(&mut rng);
+        let pk = G::generator().scalar_mul(&sk);
+        KeyPair { sk, pk }
     }
 
-    // Old KeyPair::encrypt method removed.
-    // Old KeyPair::decrypt method removed.
-
     pub fn pkey(&self) -> G::Element {
-        self.0.fst.clone()
+        self.pk.clone()
     }
 
     pub fn skey(&self) -> G::Scalar {
-        self.0.snd.clone()
+        self.sk.clone()
     }
 }
-impl<G: CryptoGroup> Size for KeyPair<G>
+
+impl<G: CryptoGroup> SerHySize for KeyPair<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE]:,
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    G::Element: SerHySize + Clone + PartialEq + Eq,
+    G::Scalar: SerHySize + Clone + PartialEq + Eq,
+    <G::Element as SerHySize>::SizeType: CoreAdd<<G::Scalar as SerHySize>::SizeType>,
+    Sum<<G::Element as SerHySize>::SizeType, <G::Scalar as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize,
 {
-    const SIZE: usize = G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE;
+    type SizeType = Sum<<G::Element as SerHySize>::SizeType, <G::Scalar as SerHySize>::SizeType>;
 }
-impl<G: CryptoGroup> FSerializable<{ G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE }>
-    for KeyPair<G>
+
+impl<G: CryptoGroup> FSerializable<Sum<<G::Element as SerHySize>::SizeType, <G::Scalar as SerHySize>::SizeType>> for KeyPair<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-    Pair<G::Element, G::Scalar>:
-        FSerializable<{ G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE }>,
+    G::Element: SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    G::Scalar: SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreAdd<<G::Scalar as SerHySize>::SizeType>, // Removed incorrect Sub bound
+    <G::Scalar as SerHySize>::SizeType: Unsigned + NonZero + ArraySize,
+    Sum<<G::Element as SerHySize>::SizeType, <G::Scalar as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize
+                                     + core::ops::Sub<<G::Element as SerHySize>::SizeType, Output = <G::Scalar as SerHySize>::SizeType>
+                                     + core::ops::Sub<<G::Scalar as SerHySize>::SizeType, Output = <G::Element as SerHySize>::SizeType>, // Added for symmetry, Product uses split specific to A then B
 {
-    fn read_bytes(bytes: [u8; G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE]) -> Self {
-        let pair = Pair::<G::Element, G::Scalar>::read_bytes(bytes);
-        KeyPair(pair)
+    // Signature should use the explicit Sum type, not Self::SizeType
+    fn serialize(&self) -> Array<u8, Sum<<G::Element as SerHySize>::SizeType, <G::Scalar as SerHySize>::SizeType>> {
+        let product = Product(self.pk.clone(), self.sk.clone());
+        product.serialize()
     }
-    fn write_bytes(&self) -> [u8; G::ELEMENT_SERIALIZED_SIZE + G::SCALAR_SERIALIZED_SIZE] {
-        self.0.write_bytes()
+
+    // Signature should use the explicit Sum type
+    fn deserialize(buffer: Array<u8, Sum<<G::Element as SerHySize>::SizeType, <G::Scalar as SerHySize>::SizeType>>) -> Result<Self, SerHyError> {
+        let product = Product::<G::Element, G::Scalar>::deserialize(buffer)?;
+        Ok(KeyPair { pk: product.0, sk: product.1 })
+    }
+}
+
+
+// ElGamal Ciphertext: c1 (Element), c2 (Element)
+// Old: ElGamal(Pair<G::Element, G::Element>)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElGamal<G: CryptoGroup>
+where G::Element: Clone + PartialEq + Eq
+{
+    pub c1: G::Element, // g^r
+    pub c2: G::Element, // m * h^r
+}
+
+impl<G: CryptoGroup> ElGamal<G>
+where G::Element: Clone + PartialEq + Eq
+{
+    pub fn new(c1: G::Element, c2: G::Element) -> Self {
+        ElGamal { c1, c2 }
+    }
+
+    pub fn gr(&self) -> G::Element { // Assuming c1 is g^r
+        self.c1.clone()
+    }
+
+    pub fn mhr(&self) -> G::Element { // Assuming c2 is m*h^r
+        self.c2.clone()
+    }
+}
+
+impl<G: CryptoGroup> SerHySize for ElGamal<G>
+where
+    G::Element: SerHySize + Clone + PartialEq + Eq,
+    <G::Element as SerHySize>::SizeType: CoreAdd<<G::Element as SerHySize>::SizeType>, // For Sum
+    Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize,
+{
+    // Two elements of the same type.
+    type SizeType = Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>;
+    // Alternative using Prod if we want to be more explicit about repetition of same type:
+    // type SizeType = Prod<<G::Element as SerHySize>::SizeType, typenum::U2>;
+    // This would require G::Element::SizeType: CoreMul<U2> and Prod<...> bound. Sum is simpler.
+}
+
+impl<G: CryptoGroup> FSerializable<Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>> for ElGamal<G>
+where
+    G::Element: SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreAdd<<G::Element as SerHySize>::SizeType>, // Removed incorrect Sub bound
+    Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize
+                                     + core::ops::Sub<<G::Element as SerHySize>::SizeType, Output = <G::Element as SerHySize>::SizeType>,
+{
+    // Signature should use the explicit Sum type
+    fn serialize(&self) -> Array<u8, Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>> {
+        let product = Product(self.c1.clone(), self.c2.clone());
+        product.serialize()
+    }
+
+    // Signature should use the explicit Sum type
+    fn deserialize(buffer: Array<u8, Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>>) -> Result<Self, SerHyError> {
+        let product = Product::<G::Element, G::Element>::deserialize(buffer)?;
+        Ok(ElGamal { c1: product.0, c2: product.1 })
+    }
+}
+
+impl<G: CryptoGroup> Default for ElGamal<G>
+where G::Element: Default + Clone + PartialEq + Eq // Ensure G::Element is Default
+{
+    fn default() -> Self {
+        Self {
+            c1: G::Element::default(),
+            c2: G::Element::default(),
+        }
     }
 }
 
@@ -134,219 +162,212 @@ where
 
 impl<G: CryptoGroup> Encryptable<G, ElGamal<G>> for G::Element
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-    // KeyPair<G> and ElGamal<G> bounds are implicitly handled by their definitions
-    // and the fact that G: CryptoGroup.
+    G::Element: GroupElement<Scalar = G::Scalar> + Clone + SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + Eq + PartialEq,
+    G::Scalar: GroupScalar + SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    // Added Default to G::Scalar for KeyPair::new if it relies on Scalar::default via some path.
+    // ElGamal<G> needs G::Element to be Clone, Eq, PartialEq (handled by its struct def)
+    // KeyPair<G> needs G::Element and G::Scalar to be Clone, Eq, PartialEq (handled by its struct def)
 {
     fn encrypt(&self, key: &KeyPair<G>) -> ElGamal<G> {
         let mut rng = rand::thread_rng();
         let r_scalar = G::Scalar::random(&mut rng);
-
         let gr = G::generator().scalar_mul(&r_scalar);
-
-        // self is the message: G::Element
-        // key.pkey() is the public key: G::Element
-        // r_scalar is the random scalar: G::Scalar
-        let y_pow_r = key.pkey().scalar_mul(&r_scalar);
+        let y_pow_r = key.pk.scalar_mul(&r_scalar); // Use key.pk
         let mhr = self.add_element(&y_pow_r);
-
         ElGamal::<G>::new(gr, mhr)
     }
 }
 
 impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    G::Element: GroupElement<Scalar = G::Scalar> + Clone + SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + Eq + PartialEq,
+    G::Scalar: GroupScalar + SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
 {
     fn decrypt(&self, key: &KeyPair<G>) -> G::Element {
-        // self.gr() is g^r (type G::Element)
-        // key.skey() is x (the secret key, type G::Scalar)
-        // Calculate (g^r)^x = g^{rx}
-        let gr_pow_x = self.gr().scalar_mul(&key.skey());
-
-        // self.mhr() is M * h^r = M * (g^x)^r = M * g^{xr} (type G::Element)
-        // To get M, we calculate M = (M * g^{xr}) * (g^{xr})^{-1}
-        // which is self.mhr().add_element(&gr_pow_x.negate_element())
-        let decrypted_element = self.mhr().add_element(&gr_pow_x.negate_element());
-
+        let gr_pow_x = self.c1.scalar_mul(&key.sk); // Use self.c1 and key.sk
+        let decrypted_element = self.c2.add_element(&gr_pow_x.negate_element()); // Use self.c2
         decrypted_element
     }
 }
 // --- End Trait Implementations ---
 
-// ElementN related code (ElementN_, struct ElementN, impl Size, impl FSerializable, and its methods including encrypt) removed from here.
 
-// --- Encryptable/Decryptable Trait Implementations for N-types ---
-
-impl<G: CryptoGroup, const LEN: usize> Encryptable<G, ElGamalN<G, LEN>> for ElementN<G, LEN>
+// --- ElGamalN (Ciphertext for multiple elements) ---
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElGamalN<G, LenType>(pub Repeated<ElGamal<G>, LenType>)
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE * 2]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-    // The Product<LEN, G::Element>::map method will also require G::Element to be FSerializable.
-    // It's already part of GroupElement.
-    // It will also require ElGamal<G> (the output of the closure) to be FSerializable for the new Product.
+    G: CryptoGroup,
+    G::Element: Clone + PartialEq + Eq, // For ElGamal<G>
+    ElGamal<G>: Clone + PartialEq + Eq + SerHySize, // For Repeated<...>
+    LenType: ArraySize;
+
+impl<G, LenType> ElGamalN<G, LenType>
+where
+    G: CryptoGroup,
+    G::Element: SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + GroupElement<Scalar = G::Scalar> + Clone + Default + Eq + PartialEq,
+    G::Scalar: SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + GroupScalar + Clone + Default + Eq + PartialEq,
+    ElGamal<G>: SerHySize + FSerializable<<ElGamal<G> as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    LenType: Unsigned + NonZero + ArraySize,
+    // Bounds for SerHySize of ElGamal<G>
+    <G::Element as SerHySize>::SizeType: CoreAdd<<G::Element as SerHySize>::SizeType>,
+    Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize,
+    // Bounds for FSerializable of ElGamalN
+    <ElGamal<G> as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
 {
-    fn encrypt(&self, key: &KeyPair<G>) -> ElGamalN<G, LEN> {
-        // self.0 is Product<LEN, G::Element>
-        // element is G::Element
-        // element.encrypt(key) returns ElGamal<G>
-        let encrypted_product: Product<LEN, ElGamal<G>> =
-            self.0.map(|element| element.encrypt(key));
-        ElGamalN::<G, LEN>(encrypted_product)
+    pub fn new(ciphertexts: Repeated<ElGamal<G>, LenType>) -> Self {
+        ElGamalN(ciphertexts)
     }
 }
 
-impl<G: CryptoGroup, const LEN: usize> Decryptable<G, ElementN<G, LEN>> for ElGamalN<G, LEN>
+impl<G, LenType> SerHySize for ElGamalN<G, LenType>
 where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
+    G: CryptoGroup,
+    G::Element: SerHySize + Clone + PartialEq + Eq, // For ElGamal<G>
+    ElGamal<G>: SerHySize + Clone + PartialEq + Eq,
+    <ElGamal<G> as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
+    LenType: Unsigned + NonZero + ArraySize,
+    Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
 {
-    fn decrypt(&self, key: &KeyPair<G>) -> ElementN<G, LEN> {
-        // self.0 is Product<LEN, ElGamal<G>>
-        // elgamal is ElGamal<G>
-        // elgamal.decrypt(key) returns G::Element
-        let decrypted_product: Product<LEN, G::Element> =
-            self.0.map(|elgamal| elgamal.decrypt(key));
-        ElementN::<G, LEN>::new(decrypted_product)
+    type SizeType = Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>;
+}
+
+impl<G, LenType> FSerializable<Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>> for ElGamalN<G, LenType>
+where
+    G: CryptoGroup,
+    G::Element: SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + GroupElement<Scalar = G::Scalar> + Clone + Default + Eq + PartialEq,
+    G::Scalar: SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + GroupScalar + Clone + Default + Eq + PartialEq,
+    ElGamal<G>: SerHySize + FSerializable<<ElGamal<G> as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    LenType: Unsigned + NonZero + ArraySize,
+    <ElGamal<G> as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
+    Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+{
+    // Signature should use the explicit Prod type
+    fn serialize(&self) -> Array<u8, Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>> {
+        self.0.serialize()
+    }
+
+    // Signature should use the explicit Prod type
+    fn deserialize(buffer: Array<u8, Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>>) -> Result<Self, SerHyError> {
+        Ok(ElGamalN(Repeated::deserialize(buffer)?))
+    }
+}
+
+
+// --- Encryptable/Decryptable Trait Implementations for N-types ---
+impl<G, LenType> Encryptable<G, ElGamalN<G, LenType>> for ElementN<G, LenType>
+where
+    G: CryptoGroup,
+    G::Element: GroupElement<Scalar = G::Scalar> + SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    G::Scalar: GroupScalar + SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    ElGamal<G>: SerHySize + FSerializable<<ElGamal<G> as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    LenType: Unsigned + NonZero + ArraySize,
+    // Bounds from ElementN struct definition
+    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType> + CoreAdd<<G::Element as SerHySize>::SizeType>, // Added CoreAdd here
+    Prod<<G::Element as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    // Bounds for SerHySize of ElGamal<G> (needed for Array<ElGamal<G>, LenType>::default() and its FSerializable)
+    Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize,
+    // Bounds for FSerializable of ElGamalN / Repeated<ElGamal<G>, LenType>
+    <ElGamal<G> as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // This is Sum<G::E::ST, G::E::ST>: CoreMul<LenType>
+    Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+{
+    fn encrypt(&self, key: &KeyPair<G>) -> ElGamalN<G, LenType> {
+        let mut encrypted_elements_array = Array::<ElGamal<G>, LenType>::default();
+        for i in 0..LenType::USIZE {
+            // self.0 is Repeated<G::Element, LenType>, self.0.0 is Array<G::Element, LenType>
+            let element = self.0.0.as_slice()[i].clone();
+            encrypted_elements_array.as_mut_slice()[i] = element.encrypt(key);
+        }
+        ElGamalN::new(Repeated(encrypted_elements_array))
+    }
+}
+
+impl<G, LenType> Decryptable<G, ElementN<G, LenType>> for ElGamalN<G, LenType>
+where
+    G: CryptoGroup,
+    G::Element: GroupElement<Scalar = G::Scalar> + SerHySize + FSerializable<<G::Element as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    G::Scalar: GroupScalar + SerHySize + FSerializable<<G::Scalar as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    ElGamal<G>: SerHySize + FSerializable<<ElGamal<G> as SerHySize>::SizeType> + Clone + Default + Eq + PartialEq,
+    LenType: Unsigned + NonZero + ArraySize,
+    // Bounds for G::Element::SizeType (from ElementN and for ElGamal<G>)
+    <G::Element as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType> + CoreAdd<<G::Element as SerHySize>::SizeType>, // Added CoreAdd and ensured CoreMul
+    Prod<<G::Element as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize, // For ElementN FSer
+    // Bounds for SerHySize of ElGamal<G>
+    Sum<<G::Element as SerHySize>::SizeType, <G::Element as SerHySize>::SizeType>: Unsigned + NonZero + ArraySize,
+    // Bounds for FSerializable of ElGamalN / Repeated<ElGamal<G>, LenType>
+    <ElGamal<G> as SerHySize>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // This is Sum<G::E::ST, G::E::ST>: CoreMul<LenType>
+    Prod<<ElGamal<G> as SerHySize>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+{
+    fn decrypt(&self, key: &KeyPair<G>) -> ElementN<G, LenType> {
+        let mut decrypted_elements_array = Array::<G::Element, LenType>::default();
+        for i in 0..LenType::USIZE {
+            let elgamal_cipher = self.0.0.as_slice()[i].clone();
+            decrypted_elements_array.as_mut_slice()[i] = elgamal_cipher.decrypt(key);
+        }
+        ElementN::<G, LenType>::new(Repeated(decrypted_elements_array))
     }
 }
 
 // --- End N-type Trait Implementations ---
 
-pub struct ElGamalN<G: CryptoGroup, const LEN: usize>(pub Product<LEN, ElGamal<G>>)
-where
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-    [(); G::ELEMENT_SERIALIZED_SIZE]:;
-
-impl<G: CryptoGroup, const LEN: usize> ElGamalN<G, LEN>
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
-    pub fn new(list: [ElGamal<G>; LEN]) -> Self {
-        // Made pub
-        ElGamalN(Product(list))
-    }
-    // Old decrypt method removed
-}
-impl<G: CryptoGroup, const LEN: usize> Size for ElGamalN<G, LEN>
-where
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
-    const SIZE: usize = Product::<LEN, ElGamal<G>>::SIZE;
-}
-impl<G: CryptoGroup, const LEN: usize> FSerializable<{ LEN * (G::ELEMENT_SERIALIZED_SIZE * 2) }>
-    for ElGamalN<G, LEN>
-where
-    Product<LEN, ElGamal<G>>: FSerializable<{ LEN * (G::ELEMENT_SERIALIZED_SIZE * 2) }>,
-    [(); G::ELEMENT_SERIALIZED_SIZE]:,
-    [(); G::SCALAR_SERIALIZED_SIZE]:,
-{
-    fn read_bytes(bytes: [u8; LEN * (G::ELEMENT_SERIALIZED_SIZE * 2)]) -> Self {
-        let list: Product<LEN, ElGamal<G>> = Product::read_bytes(bytes);
-        ElGamalN(list)
-    }
-    fn write_bytes(&self) -> [u8; LEN * (G::ELEMENT_SERIALIZED_SIZE * 2)] {
-        self.0.write_bytes()
-    }
-}
-// Removed the separate impl block for ElGamalN that only contained decrypt
-
 #[cfg(test)]
 mod tests {
     use std::array;
-
-    use super::*; // This now brings in RistrettoElement, RistrettoScalar etc.
-    // No need to import Element, Exponent, ElementN from crate::arithmetic anymore
+    use super::*;
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement};
-
-    // test_element and test_exponent removed.
-    // curve25519_dalek::scalar::Scalar import removed as it's no longer directly used by remaining tests.
-    // Usages of Scalar and RistrettoPoint in KeyPair::new, etc., rely on the parent module's imports.
+    use hybrid_array::typenum::U3; // For LEN = 3 tests
 
     #[test]
-    fn test_keypair() {
+    fn test_keypair_hybrid_serialization() {
         let keypair = KeyPair::<Ristretto255Group>::new();
-
-        // Serialize and deserialize
-        let bytes = keypair.write_bytes();
-        let parsed_keypair = KeyPair::<Ristretto255Group>::read_bytes(bytes);
-
-        // Check if the original and parsed keypairs are equal
-        assert_eq!(keypair.pkey(), parsed_keypair.pkey());
-        assert_eq!(keypair.skey(), parsed_keypair.skey());
+        let serialized = keypair.serialize();
+        let deserialized = KeyPair::<Ristretto255Group>::deserialize(serialized).unwrap();
+        assert_eq!(keypair.pk, deserialized.pk);
+        assert_eq!(keypair.sk, deserialized.sk);
     }
 
     #[test]
-    fn test_elgamal() {
+    fn test_elgamal_hybrid_serialization_and_decryption() {
         let keypair = KeyPair::<Ristretto255Group>::new();
-        // Updated to use RistrettoElement and dalek's RistrettoPoint for random generation
         let message = RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(
             &mut rand::thread_rng(),
         ));
 
-        // Encrypt the message using trait method
-        let elgamal: ElGamal<Ristretto255Group> = message.encrypt(&keypair);
+        let ciphertext: ElGamal<Ristretto255Group> = message.encrypt(&keypair);
+        let serialized_ct = ciphertext.serialize();
+        let deserialized_ct = ElGamal::<Ristretto255Group>::deserialize(serialized_ct).unwrap();
 
-        // Serialize and deserialize
-        let bytes = elgamal.write_bytes();
-        let parsed_elgamal = ElGamal::<Ristretto255Group>::read_bytes(bytes);
+        assert_eq!(ciphertext.c1, deserialized_ct.c1);
+        assert_eq!(ciphertext.c2, deserialized_ct.c2);
 
-        // Decrypt the message using trait method
-        let decrypted_message: RistrettoElement = parsed_elgamal.decrypt(&keypair);
-        // Check if the original and decrypted messages are equal
+        let decrypted_message: RistrettoElement = deserialized_ct.decrypt(&keypair);
         assert_eq!(message, decrypted_message);
     }
 
-    impl Size for bool {
-        const SIZE: usize = 1;
-    }
+    // Removed: impl Size for bool { ... } as it's not used and from old system.
 
     #[test]
-    fn test_eg_product() {
+    fn test_elgamal_n_hybrid_serialization_and_decryption() {
         let keypair = KeyPair::<Ristretto255Group>::new();
 
-        // [RistrettoElement; 3]
-        let messages_array: [RistrettoElement; 3] = array::from_fn(|_| {
+        let messages_array: [RistrettoElement; U3::USIZE] = array::from_fn(|_| {
             RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(
                 &mut rand::thread_rng(),
             ))
         });
+        let elements_repeated = Repeated(Array::<RistrettoElement, U3>::from(messages_array.clone()));
+        let messages_n = ElementN::<Ristretto255Group, U3>::new(elements_repeated);
 
-        // ElementN<Ristretto255Group, 3>
-        let messages = ElementN::<Ristretto255Group, 3>::new(Product(messages_array));
+        let encrypted_n: ElGamalN<Ristretto255Group, U3> = messages_n.encrypt(&keypair);
 
-        // ElGamalN<Ristretto255Group, 3>
-        let egs: ElGamalN<Ristretto255Group, 3> = messages.encrypt(&keypair);
+        let serialized_en = encrypted_n.serialize();
+        let deserialized_en = ElGamalN::<Ristretto255Group, U3>::deserialize(serialized_en).unwrap();
 
-        // [u8; 192] = [u8; 32 * 3 * 2]
-        // let bytes = <ElGamalN<Ristretto255Group, 3> as FSerializable<192>>::write_bytes(&egs);
-        let bytes = egs.write_bytes();
+        let decrypted_n: ElementN<Ristretto255Group, U3> = deserialized_en.decrypt(&keypair);
 
-        // let bytes: [u8; 192] = egs.write_bytes(&egs);
-        // ElGamalN<Ristretto255Group, 3>
-        let parsed_egs = ElGamalN::<Ristretto255Group, 3>::read_bytes(bytes);
-
-        // ElementN<Ristretto255Group, 3>
-        let decrypted: ElementN<Ristretto255Group, 3> = parsed_egs.decrypt(&keypair);
-
-        // Product<3, bool>
-        // Check if each decrypted message matches the original message
-        let ok = decrypted
-            .0
-            .zip_with(&messages.0, |decrypted_el, original_el| {
-                // decrypted_el and original_el are RistrettoElement here
-                decrypted_el == original_el
-            });
-
-        assert!(ok.0.iter().all(|x| *x), "All elements should match");
-
-        // Removed duplicated decryption block from here as it was redundant
-        // and not testing a new distinct scenario for ElGamal product integrity.
-        // The original test for non-matching keys is better suited for a separate,
-        // more focused test case if needed.
+        // Compare original messages with decrypted messages
+        for i in 0..U3::USIZE {
+            assert_eq!(messages_n.0.0.as_slice()[i], decrypted_n.0.0.as_slice()[i]);
+        }
     }
 }
