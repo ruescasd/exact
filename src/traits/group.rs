@@ -4,18 +4,17 @@ use hybrid_array::typenum::{Unsigned, NonZero}; // For typenum constraints
 use hybrid_array::ArraySize; // For ArraySize constraint
 
 pub trait CryptoGroup {
-    // Changed from const usize to associated types
-    type ElementSerializedSize: Unsigned + NonZero + ArraySize;
-    type ScalarSerializedSize: Unsigned + NonZero + ArraySize;
+    // ElementSerializedSize and ScalarSerializedSize are removed.
+    // Size information will come from FSerializable/Size impls on Element and Scalar types.
 
-    // The generic arguments for GroupElement and GroupScalar will change
-    // from const usize to type parameters (typenum types).
-    // This will require updating GroupElement and GroupScalar trait definitions later.
-    // For now, this will likely cause errors, which is expected for this step.
-    type Element: GroupElement<Self::ElementSerializedSize, Self::ScalarSerializedSize, Scalar = Self::Scalar>;
-    type Scalar: GroupScalar<Self::ScalarSerializedSize>;
-    // Where clauses like `[(); Self::ELEMENT_SERIALIZED_SIZE]:,` are no longer needed here
-    // as ArraySize on the associated types implies usability.
+    // GroupElement and GroupScalar will eventually have no size generic parameters.
+    // For now, this change will cause errors as their definitions still expect them.
+    // This is an intermediate step.
+    type Element: GroupElement<Scalar = Self::Scalar>; // Assuming GroupElement will take Scalar's size, or no size.
+                                                       // Let's assume GroupElement will only need its own Scalar type.
+                                                       // The size of Element comes from its FSerializable<S> and Size<SizeType=S> impls.
+                                                       // The size of Scalar comes from its FSerializable<S> and Size<SizeType=S> impls.
+    type Scalar: GroupScalar; // Assuming GroupScalar will have no size generic parameter.
 
     /// Returns the standard generator for this cryptographic group.
     fn generator() -> Self::Element;

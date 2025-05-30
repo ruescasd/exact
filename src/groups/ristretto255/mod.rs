@@ -19,8 +19,8 @@ use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
 pub struct Ristretto255Group;
 
 impl CryptoGroup for Ristretto255Group {
-    type ElementSerializedSize = U32; // Both are 32 bytes for Ristretto255
-    type ScalarSerializedSize = U32;
+    // ElementSerializedSize and ScalarSerializedSize associated types are removed from CryptoGroup trait
+    // Their definitions are removed from this impl block.
 
     type Element = RistrettoElement;
     type Scalar = RistrettoScalar;

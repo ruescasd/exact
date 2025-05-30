@@ -19,8 +19,8 @@ impl RistrettoElement {
     // and not covered by GroupElement trait.
 }
 
-// GroupElement now expects typenum types for sizes. Assuming RistrettoScalar will also be U32.
-impl GroupElement<U32, U32> for RistrettoElement {
+// GroupElement trait is now parameter-less for sizes.
+impl GroupElement for RistrettoElement {
     type Scalar = RistrettoScalar;
 
     fn identity() -> Self {
@@ -39,6 +39,50 @@ impl GroupElement<U32, U32> for RistrettoElement {
         RistrettoElement(self.0 * scalar.0)
     }
 }
+
+// Implement std::ops traits required by GroupElement supertraits
+impl std::ops::Add for RistrettoElement {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        RistrettoElement(self.0 + rhs.0)
+    }
+}
+
+impl<'a, 'b> std::ops::Add<&'b RistrettoElement> for &'a RistrettoElement {
+    type Output = RistrettoElement;
+    fn add(self, rhs: &'b RistrettoElement) -> Self::Output {
+        RistrettoElement(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Sub for RistrettoElement {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        RistrettoElement(self.0 - rhs.0)
+    }
+}
+
+impl<'a, 'b> std::ops::Sub<&'b RistrettoElement> for &'a RistrettoElement {
+    type Output = RistrettoElement;
+    fn sub(self, rhs: &'b RistrettoElement) -> Self::Output {
+        RistrettoElement(self.0 - rhs.0)
+    }
+}
+
+impl std::ops::Neg for RistrettoElement {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        RistrettoElement(-self.0)
+    }
+}
+
+impl<'a> std::ops::Neg for &'a RistrettoElement {
+    type Output = RistrettoElement;
+    fn neg(self) -> Self::Output {
+        RistrettoElement(-self.0)
+    }
+}
+
 
 impl SerHySize for RistrettoElement {
     type SizeType = U32;

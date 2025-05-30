@@ -26,7 +26,9 @@ impl RistrettoScalar {
     // and not covered by GroupScalar trait. For now, new() and from_hash() are key.
 }
 
-impl GroupScalar<U32> for RistrettoScalar { // GroupScalar now expects a typenum type
+// GroupScalar trait is now parameter-less for size.
+// The methods add, sub, mul, negate are now supertraits.
+impl GroupScalar for RistrettoScalar {
     fn zero() -> Self {
         RistrettoScalar(DalekScalar::ZERO)
     }
@@ -61,6 +63,59 @@ impl GroupScalar<U32> for RistrettoScalar { // GroupScalar now expects a typenum
         } else {
             Some(RistrettoScalar(self.0.invert()))
         }
+    }
+}
+
+// Implement std::ops traits required by GroupScalar supertraits
+impl std::ops::Add for RistrettoScalar {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        RistrettoScalar(self.0 + rhs.0)
+    }
+}
+impl<'a, 'b> std::ops::Add<&'b RistrettoScalar> for &'a RistrettoScalar {
+    type Output = RistrettoScalar;
+    fn add(self, rhs: &'b RistrettoScalar) -> Self::Output {
+        RistrettoScalar(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Sub for RistrettoScalar {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        RistrettoScalar(self.0 - rhs.0)
+    }
+}
+impl<'a, 'b> std::ops::Sub<&'b RistrettoScalar> for &'a RistrettoScalar {
+    type Output = RistrettoScalar;
+    fn sub(self, rhs: &'b RistrettoScalar) -> Self::Output {
+        RistrettoScalar(self.0 - rhs.0)
+    }
+}
+
+impl std::ops::Mul for RistrettoScalar { // Note: GroupScalar uses CoreOpsMul which is std::ops::Mul
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        RistrettoScalar(self.0 * rhs.0)
+    }
+}
+impl<'a, 'b> std::ops::Mul<&'b RistrettoScalar> for &'a RistrettoScalar {
+    type Output = RistrettoScalar;
+    fn mul(self, rhs: &'b RistrettoScalar) -> Self::Output {
+        RistrettoScalar(self.0 * rhs.0)
+    }
+}
+
+impl std::ops::Neg for RistrettoScalar {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        RistrettoScalar(-self.0)
+    }
+}
+impl<'a> std::ops::Neg for &'a RistrettoScalar {
+    type Output = RistrettoScalar;
+    fn neg(self) -> Self::Output {
+        RistrettoScalar(-self.0)
     }
 }
 
