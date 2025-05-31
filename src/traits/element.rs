@@ -2,31 +2,18 @@ use crate::serialization_hybrid::{FSerializable, Product, Size}; // Using new se
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use core::fmt::Debug;
-use hybrid_array::typenum::{Unsigned, NonZero, Prod}; // Removed Mul from here
+use hybrid_array::typenum::{Prod}; // Removed Mul from here
 use hybrid_array::ArraySize; // For ArraySize constraint
 use core::ops::Mul as CoreMul; // For Mul trait bound
 
-use core::ops::{Add, Sub, Neg}; // For arithmetic trait bounds
-
-/// Represents an element in a cryptographic group.
-// Size generic parameters S and SS removed. Size info comes from Self: Size.
-// Scalar size info comes from Self::Scalar: Size.
-pub trait GroupElement:
-    Size // Implies Self::SizeType as the element's size
-    + FSerializable<Self::SizeType>
-    + Debug
-    + Clone
-    + Sized
+pub trait GroupElement: Size + Debug
     // Common group operations as trait bounds (optional, can be methods too)
-    + Add<Self, Output = Self>
-    + Neg<Output = Self>
+    // + Add<Self, Output = Self>
+    // + Neg<Output = Self>
     // + Sub<Self, Output = Self> // Usually derived from Add + Neg
 {
     // Associated type for the scalar field of this group element
-    type Scalar: GroupScalar // GroupScalar will also have no size generic
-                + Size // Require Scalar to also have a size.
-                + FSerializable<<Self::Scalar as Size>::SizeType>; // And be FSerializable with its own size.
-                // Add other bounds for Scalar if necessary, e.g. Debug, Clone, Eq
+    type Scalar: GroupScalar;
 
     // Group operations
     fn identity() -> Self; // Can often be Self::default()
@@ -35,24 +22,17 @@ pub trait GroupElement:
     fn scalar_mul(&self, scalar: &Self::Scalar) -> Self;
 }
 
-#[derive(Debug)] // Assuming G::Element will be Clone
+#[derive(Debug)]
 pub struct ElementN<G, LenType>(pub Product<G::Element, LenType>)
 where
     G: CryptoGroup,
-    LenType: ArraySize,
-    G::Element: Clone + Size,
-    <G::Element as Size>::SizeType: CoreMul<LenType>, // Use G::Element's SizeType
-    Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize;
-
+    LenType: ArraySize;
 
 impl<G, LenType> ElementN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    <G::Element as Size>::SizeType: CoreMul<LenType>,
-    Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
-    /// Creates a new ElementN from a Repeated struct of group elements.
     pub fn new(elements: Product<G::Element, LenType>) -> Self {
         ElementN(elements)
     }
@@ -61,12 +41,10 @@ impl<G, LenType> FSerializable<Prod<<G::Element as Size>::SizeType, LenType>>
     for ElementN<G, LenType>
 where
     G: CryptoGroup,
-    G::Element: GroupElement // Ensure G::Element is a GroupElement
-               + FSerializable<<G::Element as Size>::SizeType>
-               + Size,
-    LenType: NonZero + ArraySize,
+    LenType: ArraySize,
+    G::Element: FSerializable<<G::Element as Size>::SizeType> + Size,
     <G::Element as Size>::SizeType: CoreMul<LenType>,
-    Prod<<G::Element as Size>::SizeType, LenType>: NonZero + ArraySize,
+    Prod<<G::Element as Size>::SizeType, LenType>: ArraySize,
 {
     fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Element as Size>::SizeType, LenType>> {
         self.0.serialize()
@@ -83,10 +61,12 @@ mod tests {
     use crate::serialization_hybrid::{FSerializable, Product, Size as Size};
     use crate::traits::group::CryptoGroup;
     use crate::traits::scalar::GroupScalar; // For TestElement's associated type
-    use hybrid_array::typenum::{Prod, Unsigned, NonZero, U3, U16, U32}; // More specific imports
-    use hybrid_array::{Array, ArraySize};
+    use hybrid_array::typenum::{Prod, Unsigned, U3, U16, U32}; // More specific imports
+    use hybrid_array::{Array};
     use core::fmt::Debug;
 
+    use core::ops::{Add, Sub, Neg};
+    
     // --- Mock Implementations ---
 
     // 1. Mock Scalar (minimal for Element tests, more fleshed out in scalar.rs tests)
@@ -195,7 +175,7 @@ mod tests {
         assert_eq!(element_n_val.0.0.as_slice()[0], deserialized_element_n.0.0.as_slice()[0]);
         assert_eq!(element_n_val.0.0.as_slice()[1], deserialized_element_n.0.0.as_slice()[1]);
         assert_eq!(element_n_val.0.0.as_slice()[2], deserialized_element_n.0.0.as_slice()[2]);
-        // For full equality, Repeated needs PartialEq, which means Array needs it, which means TestElement needs it (already derived)
+        
         assert_eq!(element_n_val.0.0, deserialized_element_n.0.0); // Compare Array<TestElement, U3>
     }
 }

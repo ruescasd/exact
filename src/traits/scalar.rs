@@ -2,29 +2,19 @@ use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
 use core::fmt::Debug;
 use rand::RngCore;
-use hybrid_array::typenum::{Unsigned, NonZero, Prod};
+use hybrid_array::typenum::{NonZero, Prod};
 use hybrid_array::ArraySize;
-use core::ops::Mul as CoreMul; // Renamed to avoid conflict with typenum::Mul if it were used
+use core::ops::Mul as CoreMul;
 
-use core::ops::{Add, Sub, Mul as CoreOpsMul, Neg}; // For arithmetic trait bounds
-
-pub trait GroupScalar:
-    Size
-    + FSerializable<Self::SizeType>
-    + Clone
-    + Debug
-    + PartialEq
-    + Eq
-    + Sized
-    + Add<Self, Output = Self>
-    + Sub<Self, Output = Self>
-    + CoreOpsMul<Self, Output = Self>
-    + Neg<Output = Self>
+pub trait GroupScalar: Sized
+    // + Add<Self, Output = Self>
+    // + Sub<Self, Output = Self>
+    // + CoreOpsMul<Self, Output = Self>
+    // + Neg<Output = Self>
 {
     fn zero() -> Self;
     fn one() -> Self;
     fn random<R: RngCore + rand::CryptoRng>(rng: &mut R) -> Self;
-    // Re-declaring methods to match the previous structure, assuming they are part of direct API
     fn add(&self, other: &Self) -> Self;
     fn sub(&self, other: &Self) -> Self;
     fn mul(&self, other: &Self) -> Self;
@@ -36,18 +26,12 @@ pub trait GroupScalar:
 pub struct ExponentN<G, LenType>(pub Product<G::Scalar, LenType>)
 where
     G: CryptoGroup,
-    LenType: ArraySize,
-    G::Scalar: GroupScalar + Size,
-    <G::Scalar as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Scalar as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize;
+    LenType: ArraySize;
 
 impl<G, LenType> ExponentN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    G::Scalar: GroupScalar + Size,
-    <G::Scalar as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Scalar as Size>::SizeType, LenType>: NonZero + ArraySize,
 {
     pub fn new(elements: Product<G::Scalar, LenType>) -> Self {
         ExponentN(elements)
@@ -58,12 +42,10 @@ impl<G, LenType> FSerializable<Prod<<G::Scalar as Size>::SizeType, LenType>>
     for ExponentN<G, LenType>
 where
     G: CryptoGroup,
-    G::Scalar: GroupScalar
-               + FSerializable<<G::Scalar as Size>::SizeType>
-               + Size,
     LenType: ArraySize,
-    <G::Scalar as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<G::Scalar as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    G::Scalar: FSerializable<<G::Scalar as Size>::SizeType> + Size,
+    <G::Scalar as Size>::SizeType: NonZero + CoreMul<LenType>,
+    Prod<<G::Scalar as Size>::SizeType, LenType>: ArraySize,
 {
     fn serialize(&self) -> hybrid_array::Array<u8, Prod<<G::Scalar as Size>::SizeType, LenType>> {
         self.0.serialize()

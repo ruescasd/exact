@@ -5,17 +5,14 @@ pub use element::RistrettoElement;
 pub use scalar::RistrettoScalar;
 
 use crate::traits::group::CryptoGroup;
-// use crate::traits::element::GroupElement;
-// use crate::traits::scalar::GroupScalar;
-// Remove old Size import
-use crate::utils; // For utils::hash
-use hybrid_array::typenum::U32; // Import U32 for defining sizes
+
+use crate::utils;
 
 use curve25519_dalek::constants as dalek_constants;
 use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
 
 /// Marker struct for the Ristretto255 group implementation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)] // Added common derives
+#[derive(Debug, Clone)]
 pub struct Ristretto255Group;
 
 impl CryptoGroup for Ristretto255Group {

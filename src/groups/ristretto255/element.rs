@@ -1,5 +1,5 @@
 use crate::groups::ristretto255::scalar::RistrettoScalar;
-use crate::serialization_hybrid::{Error as SerError, FSerializable, Size as SerHySize}; // Updated imports
+use crate::serialization_hybrid::{Error as SerError, FSerializable, Size}; // Updated imports
 use crate::traits::element::GroupElement;
 use core::fmt::Debug;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -84,7 +84,7 @@ impl<'a> std::ops::Neg for &'a RistrettoElement {
 }
 
 
-impl SerHySize for RistrettoElement {
+impl Size for RistrettoElement {
     type SizeType = U32;
 }
 
@@ -113,7 +113,7 @@ impl Default for RistrettoElement {
 #[cfg(test)]
 mod tests {
     use super::*; // RistrettoElement
-    use crate::serialization_hybrid::{FSerializable, Size as SerHySize};
+    use crate::serialization_hybrid::{FSerializable};
     use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
     use crate::traits::scalar::GroupScalar; // Added GroupScalar for ::one()
     // RistrettoElement::identity() and other methods can be used to get instances.

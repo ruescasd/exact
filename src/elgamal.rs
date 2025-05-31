@@ -83,8 +83,8 @@ where
 // ElGamal Ciphertext: c1 (Element), c2 (Element)
 // Old: ElGamal(Pair<G::Element, G::Element>)
 #[derive(Debug, Clone)]
-pub struct ElGamal<G: CryptoGroup>
-{
+// FIXME this is wrong, it should be ElGamal(Pair<G::Element, G::Element>) 
+pub struct ElGamal<G: CryptoGroup> {
     pub c1: G::Element, // g^r
     pub c2: G::Element, // m * h^r
 }
@@ -104,36 +104,41 @@ impl<G: CryptoGroup> ElGamal<G>
     }
 }
 
+type ElGamalSize<G> = <Pair<<G as CryptoGroup>::Element, <G as CryptoGroup>::Element> as Size>::SizeType;
 impl<G: CryptoGroup> Size for ElGamal<G>
-where
-    G::Element: Size + Clone,
-    <G::Element as Size>::SizeType: CoreAdd<<G::Element as Size>::SizeType>, // For Sum
-    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: NonZero + ArraySize,
+    where Pair<G::Element, G::Element>: Size,
+    // G::Element: Size,
+    // <G::Element as Size>::SizeType: CoreAdd<<G::Element as Size>::SizeType>,
+    // Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: NonZero + ArraySize,
 {
-    // Two elements of the same type.
-    type SizeType = Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>;
+    // type SizeType = Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>;
+    type SizeType = ElGamalSize<G>;
 }
 
-impl<G: CryptoGroup> FSerializable<Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>> for ElGamal<G>
-where
-    G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + Clone,
+impl<G: CryptoGroup> FSerializable<ElGamalSize<G>> for ElGamal<G>
+where 
+    Pair<G::Element, G::Element>: Size,
+    Pair<G::Element, G::Element>: FSerializable<ElGamalSize<G>>,
+    G::Element: Clone,
+    
+    /*G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + Clone,
     <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreAdd<<G::Element as Size>::SizeType>, // Removed incorrect Sub bound
-    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: NonZero + ArraySize
-                                     + core::ops::Sub<<G::Element as Size>::SizeType, Output = <G::Element as Size>::SizeType>,
+    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: ArraySize
+        + core::ops::Sub<<G::Element as Size>::SizeType, Output = <G::Element as Size>::SizeType>,*/
 {
     // Signature should use the explicit Sum type
-    fn serialize(&self) -> Array<u8, Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>> {
+    fn serialize(&self) -> Array<u8, ElGamalSize<G>> {
         let product = Pair(self.c1.clone(), self.c2.clone());
         product.serialize()
     }
 
     // Signature should use the explicit Sum type
-    fn deserialize(buffer: Array<u8, Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>>) -> Result<Self, SerHyError> {
+    fn deserialize(buffer: Array<u8, ElGamalSize<G>>) -> Result<Self, SerHyError> {
         let product = Pair::<G::Element, G::Element>::deserialize(buffer)?;
         Ok(ElGamal { c1: product.0, c2: product.1 })
     }
 }
-
+/* 
 impl<G: CryptoGroup> Default for ElGamal<G>
 where G::Element: Default + Clone
 {
@@ -143,18 +148,11 @@ where G::Element: Default + Clone
             c2: G::Element::default(),
         }
     }
-}
+}*/
 
 // --- Encryptable/Decryptable Trait Implementations ---
 
-impl<G: CryptoGroup> Encryptable<G, ElGamal<G>> for G::Element
-where
-    G::Element: GroupElement<Scalar = G::Scalar> + Size + FSerializable<<G::Element as Size>::SizeType>,
-    G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone + Default,
-    // Added Default to G::Scalar for KeyPair::new if it relies on Scalar::default via some path.
-    // ElGamal<G> needs G::Element to be Clone, Eq, PartialEq (handled by its struct def)
-    // KeyPair<G> needs G::Element and G::Scalar to be Clone, Eq, PartialEq (handled by its struct def)
-{
+impl<G: CryptoGroup> Encryptable<G, ElGamal<G>> for G::Element {
     fn encrypt(&self, key: &KeyPair<G>) -> ElGamal<G> {
         let mut rng = rand::thread_rng();
         let r_scalar = G::Scalar::random(&mut rng);
@@ -165,11 +163,7 @@ where
     }
 }
 
-impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G>
-where
-    G::Element: GroupElement<Scalar = G::Scalar> + Size + FSerializable<<G::Element as Size>::SizeType>,
-    G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone,
-{
+impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G> {
     fn decrypt(&self, key: &KeyPair<G>) -> G::Element {
         let gr_pow_x = self.c1.scalar_mul(&key.sk); // Use self.c1 and key.sk
         let decrypted_element = self.c2.add_element(&gr_pow_x.negate_element()); // Use self.c2
@@ -184,22 +178,12 @@ where
 pub struct ElGamalN<G, LenType>(pub Product<ElGamal<G>, LenType>)
 where
     G: CryptoGroup,
-    ElGamal<G>: Size, // For Repeated<...>
     LenType: ArraySize;
 
 impl<G, LenType> ElGamalN<G, LenType>
 where
     G: CryptoGroup,
-    G::Element: Clone + Size + FSerializable<<G::Element as Size>::SizeType> + GroupElement<Scalar = G::Scalar> + Clone + Default,
-    G::Scalar: Clone + Size + FSerializable<<G::Scalar as Size>::SizeType> + GroupScalar + Clone + Default,
-    ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType> + Clone + Default,
-    LenType: NonZero + ArraySize,
-    // Bounds for Size of ElGamal<G>
-    <G::Element as Size>::SizeType: CoreAdd<<G::Element as Size>::SizeType>,
-    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: Unsigned + NonZero + ArraySize,
-    // Bounds for FSerializable of ElGamalN
-    <ElGamal<G> as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<ElGamal<G> as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    LenType: ArraySize,
 {
     pub fn new(ciphertexts: Product<ElGamal<G>, LenType>) -> Self {
         ElGamalN(ciphertexts)
@@ -209,11 +193,10 @@ where
 impl<G, LenType> Size for ElGamalN<G, LenType>
 where
     G: CryptoGroup,
-    G::Element: Size + Clone, // For ElGamal<G>
-    ElGamal<G>: Size + Clone,
-    <ElGamal<G> as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    LenType: Unsigned + NonZero + ArraySize,
-    Prod<<ElGamal<G> as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    LenType: ArraySize,
+    ElGamal<G>: Size,
+    <ElGamal<G> as Size>::SizeType: CoreMul<LenType>,
+    Prod<<ElGamal<G> as Size>::SizeType, LenType>: ArraySize,
 {
     type SizeType = Prod<<ElGamal<G> as Size>::SizeType, LenType>;
 }
@@ -221,12 +204,10 @@ where
 impl<G, LenType> FSerializable<Prod<<ElGamal<G> as Size>::SizeType, LenType>> for ElGamalN<G, LenType>
 where
     G: CryptoGroup,
-    G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + GroupElement<Scalar = G::Scalar> + Clone + Default,
-    G::Scalar: Size + FSerializable<<G::Scalar as Size>::SizeType> + GroupScalar + Clone + Default,
-    ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType> + Clone + Default,
-    LenType: Unsigned + NonZero + ArraySize,
-    <ElGamal<G> as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>,
-    Prod<<ElGamal<G> as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    LenType: ArraySize,
+    ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType>,
+    <ElGamal<G> as Size>::SizeType: CoreMul<LenType>,
+    Prod<<ElGamal<G> as Size>::SizeType, LenType>: ArraySize,
 {
     // Signature should use the explicit Prod type
     fn serialize(&self) -> Array<u8, Prod<<ElGamal<G> as Size>::SizeType, LenType>> {
@@ -239,58 +220,48 @@ where
     }
 }
 
-
 // --- Encryptable/Decryptable Trait Implementations for N-types ---
 impl<G, LenType> Encryptable<G, ElGamalN<G, LenType>> for ElementN<G, LenType>
 where
     G: CryptoGroup,
-    G::Element: GroupElement<Scalar = G::Scalar> + Size + FSerializable<<G::Element as Size>::SizeType> + Clone + Default,
-    G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone + Default,
-    ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType> + Clone + Default,
-    LenType: NonZero + ArraySize,
-    // Bounds from ElementN struct definition
-    <G::Element as Size>::SizeType: NonZero + ArraySize + CoreMul<LenType> + CoreAdd<<G::Element as Size>::SizeType>, // Added CoreAdd here
-    Prod<<G::Element as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
-    // Bounds for Size of ElGamal<G> (needed for Array<ElGamal<G>, LenType>::default() and its FSerializable)
-    Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: Unsigned + NonZero + ArraySize,
-    // Bounds for FSerializable of ElGamalN / Repeated<ElGamal<G>, LenType>
-    <ElGamal<G> as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // This is Sum<G::E::ST, G::E::ST>: CoreMul<LenType>
-    Prod<<ElGamal<G> as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
+    LenType: ArraySize,
+    G::Element: Clone,
+    <G::Element as Size>::SizeType: CoreMul<LenType>,
+    Prod<<G::Element as Size>::SizeType, LenType>: ArraySize,
 {
     fn encrypt(&self, key: &KeyPair<G>) -> ElGamalN<G, LenType> {
-        let mut encrypted_elements_array = Array::<ElGamal<G>, LenType>::default();
+        /* let encrypted = Array::<ElGamal<G>, LenType>::from_fn(|i| {
+            let element = self.0.0.as_slice()[i].clone();
+            element.encrypt(key)
+        });*/
+        let encrypted = self.0.0.clone().map(|element| element.encrypt(key));
+
+        ElGamalN::new(Product(encrypted))
+        /* let mut encrypted_elements_array = Array::<ElGamal<G>, LenType>::default();
         for i in 0..LenType::USIZE {
             // self.0 is Repeated<G::Element, LenType>, self.0.0 is Array<G::Element, LenType>
             let element = self.0.0.as_slice()[i].clone();
             encrypted_elements_array.as_mut_slice()[i] = element.encrypt(key);
         }
-        ElGamalN::new(Product(encrypted_elements_array))
+        ElGamalN::new(Product(encrypted_elements_array))*/
     }
 }
 
 impl<G, LenType> Decryptable<G, ElementN<G, LenType>> for ElGamalN<G, LenType>
 where
     G: CryptoGroup,
-    G::Element: GroupElement<Scalar = G::Scalar> + Size + FSerializable<<G::Element as Size>::SizeType> + Default,
-    G::Scalar: GroupScalar + Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone,
-    ElGamal<G>: Size + FSerializable<<ElGamal<G> as Size>::SizeType> + Clone,
-    LenType: Unsigned + NonZero + ArraySize,
-    // Bounds for G::Element::SizeType (from ElementN and for ElGamal<G>)
-    <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType> + CoreAdd<<G::Element as Size>::SizeType>, // Added CoreAdd and ensured CoreMul
+    LenType: ArraySize,
+    ElGamal<G>: Clone,
+    <G::Element as Size>::SizeType: CoreMul<LenType>,
     Prod<<G::Element as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize, // For ElementN FSer
-    // Bounds for Size of ElGamal<G>
-    // Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: Unsigned + NonZero + ArraySize,
-    // Bounds for FSerializable of ElGamalN / Repeated<ElGamal<G>, LenType>
-    // <ElGamal<G> as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreMul<LenType>, // This is Sum<G::E::ST, G::E::ST>: CoreMul<LenType>
-    // Prod<<ElGamal<G> as Size>::SizeType, LenType>: Unsigned + NonZero + ArraySize,
 {
     fn decrypt(&self, key: &KeyPair<G>) -> ElementN<G, LenType> {
-        let mut decrypted_elements_array = Array::<G::Element, LenType>::default();
-        for i in 0..LenType::USIZE {
-            let elgamal_cipher = self.0.0.as_slice()[i].clone();
-            decrypted_elements_array.as_mut_slice()[i] = elgamal_cipher.decrypt(key);
-        }
-        ElementN::<G, LenType>::new(Product(decrypted_elements_array))
+        /* let decrypted = Array::<G::Element, LenType>::from_fn(|i| {
+            let elgamal_cipher = self.0.0.as_slice()[i].map(|c| c.clone());
+            elgamal_cipher.decrypt(key)
+        });*/
+        let decrypted = self.0.0.clone().map(|ciphertext| ciphertext.decrypt(key));
+        ElementN::<G, LenType>::new(Product(decrypted))
     }
 }
 

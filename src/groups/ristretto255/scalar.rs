@@ -1,13 +1,13 @@
-use crate::serialization_hybrid::{Error as SerError, FSerializable, Size as SerHySize}; // Updated imports
+use crate::serialization_hybrid::{Error as SerError, FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
 use rand::RngCore;
 use sha3::digest::Digest;
-use hybrid_array::typenum::U32; // Using U32 for size
-use hybrid_array::Array as HybridArray; // Using HybridArray
+use hybrid_array::typenum::U32;
+use hybrid_array::Array as HybridArray;
 
-#[derive(Clone, Debug, PartialEq, Eq)] // Added Eq
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RistrettoScalar(pub DalekScalar);
 
 impl RistrettoScalar {
@@ -119,7 +119,7 @@ impl<'a> std::ops::Neg for &'a RistrettoScalar {
     }
 }
 
-impl SerHySize for RistrettoScalar {
+impl Size for RistrettoScalar {
     type SizeType = U32;
 }
 
@@ -149,7 +149,7 @@ impl Default for RistrettoScalar {
 #[cfg(test)]
 mod tests {
     use super::*; // RistrettoScalar
-    use crate::serialization_hybrid::{FSerializable, Size as SerHySize};
+    use crate::serialization_hybrid::{FSerializable};
     use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
     use rand::thread_rng;
 

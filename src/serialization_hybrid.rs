@@ -1,6 +1,6 @@
 
 use hybrid_array::{
-    typenum::{self, Prod, Sum, Unsigned, NonZero, U1, U2, U3, U4, U5, U8}, // Added U3, U5
+    typenum::{Prod, Sum, Unsigned},
     Array, ArraySize,
 };
 
@@ -9,11 +9,11 @@ use core::ops::{Add as CoreAdd, Mul as CoreMul, Sub as CoreSub};
 use core::fmt; // For Error Display
 
 // Define a simple Error type for serialization/deserialization failures
-#[derive(Debug, PartialEq, Eq)] // Added PartialEq, Eq for error comparison in tests if needed
+#[derive(Debug, PartialEq, Eq)] 
 pub enum Error {
     DeserializationError,
-    SerializationError, // If needed later
-    Custom(String),     // For more specific errors
+    SerializationError,
+    Custom(String),
 }
 
 impl fmt::Display for Error {
@@ -27,11 +27,9 @@ impl fmt::Display for Error {
 }
 
 pub trait Size {
-    // Ensure SizeType itself must be NonZero for FSerializable's S parameter.
     type SizeType: ArraySize;
 }
 
-// New FSerializable trait definition
 pub trait FSerializable<S: ArraySize>: Sized {
     fn serialize(&self) -> Array<u8, S>;
     fn deserialize(buffer: Array<u8, S>) -> Result<Self, Error>;
@@ -39,6 +37,16 @@ pub trait FSerializable<S: ArraySize>: Sized {
 
 #[derive(Debug)]
 pub struct Pair<A, B>(pub A, pub B);
+
+impl<A, B> Size for Pair<A, B>
+where
+    A: Size,
+    B: Size,
+    A::SizeType: CoreAdd<B::SizeType>,
+    Sum<A::SizeType, B::SizeType>: ArraySize 
+{
+    type SizeType = Sum<A::SizeType, B::SizeType>;
+}
 
 impl<A, B> FSerializable<Sum<A::SizeType, B::SizeType>> for Pair<A, B>
 where
@@ -69,11 +77,21 @@ where
 #[derive(Debug)]
 pub struct Product<T, NLen: ArraySize>(pub Array<T, NLen>);
 
+impl<T, NLen> Size for Product<T, NLen>
+where
+    T: Size,
+    NLen: ArraySize,
+    T::SizeType: CoreMul<NLen>,
+    Prod<T::SizeType, NLen>: ArraySize,
+{
+    type SizeType = Prod<T::SizeType, NLen>;
+}
+
 impl<T, NLen> FSerializable<Prod<T::SizeType, NLen>> for Product<T, NLen>
 where
     T: FSerializable<T::SizeType> + Size,
-    T::SizeType: CoreMul<NLen>,
     NLen: ArraySize,
+    T::SizeType: CoreMul<NLen>,
     Prod<T::SizeType, NLen>: ArraySize,
 {
     fn serialize(&self) -> Array<u8, Prod<T::SizeType, NLen>> {
@@ -107,7 +125,7 @@ where
 mod tests {
     use super::*;
     use crate::groups::ristretto255::RistrettoElement;
-    use hybrid_array::typenum::{U1, U2, U3, U4, U5, U8, U32, Sum, Prod, Unsigned};
+    use hybrid_array::typenum::{U3, U32, Sum, Prod, Unsigned};
 
     #[test]
     fn test_pair_element_serialization() {
