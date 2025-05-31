@@ -2,14 +2,12 @@ use crate::serialization_hybrid::{Error as SerHyError, FSerializable, Pair, Prod
 use crate::traits::element::{ElementN, GroupElement};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
-use core::ops::{Add as CoreAdd, Mul as CoreMul}; // For typenum arithmetic bounds
-use hybrid_array::typenum::{NonZero, Prod, Sum, Unsigned}; // Assuming U<N> will come from specific type defs
+use core::ops::{Mul as CoreMul}; // For typenum arithmetic bounds
+use hybrid_array::typenum::{NonZero, Prod, Unsigned}; // Assuming U<N> will come from specific type defs
 use hybrid_array::{Array, ArraySize};
 use rand;
 
-// --- New Trait Definitions ---
-// These traits might need to be moved or adapted if G::ElementSerializedSize etc. are no longer available.
-// For now, we assume G::Element and G::Scalar implement Size and FSerializable with their own SizeType.
+
 pub trait Encryptable<G: CryptoGroup, C> {
     fn encrypt(&self, key: &KeyPair<G>) -> C;
 }
@@ -20,6 +18,7 @@ pub trait Decryptable<G: CryptoGroup, P> {
 // --- End New Trait Definitions ---
 
 #[derive(Debug, Clone)]
+// This is also wrong, it should be Pair<G::Element, G::Scalar>
 pub struct KeyPair<G: CryptoGroup> {
     pub sk: G::Scalar,
     pub pk: G::Element,
@@ -42,41 +41,34 @@ impl<G: CryptoGroup> KeyPair<G> {
     }
 }
 
+type KeyPairSize<G> =
+    <Pair<<G as CryptoGroup>::Element, <G as CryptoGroup>::Scalar> as Size>::SizeType;
 impl<G: CryptoGroup> Size for KeyPair<G>
 where
-    G::Element: Size + Clone,
-    G::Scalar: Size + Clone,
-    <G::Element as Size>::SizeType: CoreAdd<<G::Scalar as Size>::SizeType>,
-    Sum<<G::Element as Size>::SizeType, <G::Scalar as Size>::SizeType>:
-        Unsigned + NonZero + ArraySize,
+    Pair<G::Element, G::Scalar>: Size,
 {
-    type SizeType = Sum<<G::Element as Size>::SizeType, <G::Scalar as Size>::SizeType>;
+    type SizeType = KeyPairSize<G>;
 }
 
 impl<G: CryptoGroup>
-    FSerializable<Sum<<G::Element as Size>::SizeType, <G::Scalar as Size>::SizeType>> for KeyPair<G>
+    FSerializable<KeyPairSize<G>> for KeyPair<G>
 where
-    G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + Clone,
-    G::Scalar: Size + FSerializable<<G::Scalar as Size>::SizeType> + Clone,
-    <G::Element as Size>::SizeType:
-        Unsigned + NonZero + ArraySize + CoreAdd<<G::Scalar as Size>::SizeType>, // Removed incorrect Sub bound
-    <G::Scalar as Size>::SizeType: Unsigned + NonZero + ArraySize,
-    Sum<<G::Element as Size>::SizeType, <G::Scalar as Size>::SizeType>: NonZero
-        + ArraySize
-        + core::ops::Sub<<G::Element as Size>::SizeType, Output = <G::Scalar as Size>::SizeType>
-        + core::ops::Sub<<G::Scalar as Size>::SizeType, Output = <G::Element as Size>::SizeType>, // Added for symmetry, Product uses split specific to A then B
+    Pair<G::Element, G::Scalar>: Size,
+    Pair<G::Element, G::Scalar>: FSerializable<KeyPairSize<G>>,
+    G::Element: Clone,
+    G::Scalar: Clone,
 {
     // Signature should use the explicit Sum type, not Self::SizeType
     fn serialize(
         &self,
-    ) -> Array<u8, Sum<<G::Element as Size>::SizeType, <G::Scalar as Size>::SizeType>> {
-        let product = Pair(self.pk.clone(), self.sk.clone());
-        product.serialize()
+    ) -> Array<u8, KeyPairSize<G>> {
+        let pair = Pair(self.pk.clone(), self.sk.clone());
+        pair.serialize()
     }
 
     // Signature should use the explicit Sum type
     fn deserialize(
-        buffer: Array<u8, Sum<<G::Element as Size>::SizeType, <G::Scalar as Size>::SizeType>>,
+        buffer: Array<u8, KeyPairSize<G>>,
     ) -> Result<Self, SerHyError> {
         let product = Pair::<G::Element, G::Scalar>::deserialize(buffer)?;
         Ok(KeyPair {
@@ -149,17 +141,6 @@ where
         })
     }
 }
-/*
-impl<G: CryptoGroup> Default for ElGamal<G>
-where G::Element: Default + Clone
-{
-    fn default() -> Self {
-        Self {
-            c1: G::Element::default(),
-            c2: G::Element::default(),
-        }
-    }
-}*/
 
 // --- Encryptable/Decryptable Trait Implementations ---
 
