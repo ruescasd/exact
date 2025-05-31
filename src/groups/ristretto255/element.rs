@@ -4,8 +4,8 @@ use crate::traits::element::GroupElement;
 use core::fmt::Debug;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::traits::Identity;
-use hybrid_array::typenum::U32; // Using U32 for size
-use hybrid_array::Array as HybridArray; // Using HybridArray
+use hybrid_array::Array as HybridArray;
+use hybrid_array::typenum::U32; // Using U32 for size // Using HybridArray
 
 #[derive(Clone, Debug, PartialEq, Eq)] // Added Eq
 pub struct RistrettoElement(pub RistrettoPoint);
@@ -83,7 +83,6 @@ impl<'a> std::ops::Neg for &'a RistrettoElement {
     }
 }
 
-
 impl Size for RistrettoElement {
     type SizeType = U32;
 }
@@ -113,9 +112,9 @@ impl Default for RistrettoElement {
 #[cfg(test)]
 mod tests {
     use super::*; // RistrettoElement
-    use crate::serialization_hybrid::{FSerializable};
-    use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
-    use crate::traits::scalar::GroupScalar; // Added GroupScalar for ::one()
+    use crate::serialization_hybrid::FSerializable;
+    use crate::traits::scalar::GroupScalar;
+    use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned // Added GroupScalar for ::one()
     // RistrettoElement::identity() and other methods can be used to get instances.
 
     #[test]
@@ -124,12 +123,20 @@ mod tests {
 
         // Serialize
         let serialized_data = element.serialize();
-        assert_eq!(serialized_data.as_slice().len(), U32::USIZE, "Serialized length mismatch");
+        assert_eq!(
+            serialized_data.as_slice().len(),
+            U32::USIZE,
+            "Serialized length mismatch"
+        );
 
         // Deserialize
-        let deserialized_element = RistrettoElement::deserialize(serialized_data).expect("Deserialization failed");
+        let deserialized_element =
+            RistrettoElement::deserialize(serialized_data).expect("Deserialization failed");
 
-        assert_eq!(element, deserialized_element, "Original and deserialized elements do not match");
+        assert_eq!(
+            element, deserialized_element,
+            "Original and deserialized elements do not match"
+        );
 
         // Test with a non-identity element if possible (e.g., generator if easily accessible or another known point)
         // For Ristretto, the generator is not directly exposed in RistrettoElement itself,
@@ -143,7 +150,8 @@ mod tests {
 
         let serialized_another = another_element.serialize();
         assert_eq!(serialized_another.as_slice().len(), U32::USIZE);
-        let deserialized_another = RistrettoElement::deserialize(serialized_another).expect("Deserialization failed");
+        let deserialized_another =
+            RistrettoElement::deserialize(serialized_another).expect("Deserialization failed");
         assert_eq!(another_element, deserialized_another);
         assert_eq!(element, another_element); // identity * 1 = identity
     }

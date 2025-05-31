@@ -1,15 +1,13 @@
-
 use hybrid_array::{
-    typenum::{Prod, Sum, Unsigned},
     Array, ArraySize,
+    typenum::{Prod, Sum, Unsigned},
 };
 
-
-use core::ops::{Add as CoreAdd, Mul as CoreMul, Sub as CoreSub};
-use core::fmt; // For Error Display
+use core::fmt;
+use core::ops::{Add as CoreAdd, Mul as CoreMul, Sub as CoreSub}; // For Error Display
 
 // Define a simple Error type for serialization/deserialization failures
-#[derive(Debug, PartialEq, Eq)] 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     DeserializationError,
     SerializationError,
@@ -43,7 +41,7 @@ where
     A: Size,
     B: Size,
     A::SizeType: CoreAdd<B::SizeType>,
-    Sum<A::SizeType, B::SizeType>: ArraySize 
+    Sum<A::SizeType, B::SizeType>: ArraySize,
 {
     type SizeType = Sum<A::SizeType, B::SizeType>;
 }
@@ -53,8 +51,8 @@ where
     A: FSerializable<A::SizeType> + Size,
     B: FSerializable<B::SizeType> + Size,
     A::SizeType: CoreAdd<B::SizeType>,
-    Sum<A::SizeType, B::SizeType>: ArraySize 
-         // For split: (S1+S2) - S1 = S2
+    Sum<A::SizeType, B::SizeType>: ArraySize
+        // For split: (S1+S2) - S1 = S2
         + CoreSub<A::SizeType, Output = B::SizeType>,
 {
     fn serialize(&self) -> Array<u8, Sum<A::SizeType, B::SizeType>> {
@@ -111,12 +109,12 @@ where
             let start = i * T::SizeType::USIZE;
             let end = start + T::SizeType::USIZE;
 
-            let item_array: Result<Array::<u8, T::SizeType>, _> = buffer[start..end].try_into();
+            let item_array: Result<Array<u8, T::SizeType>, _> = buffer[start..end].try_into();
 
             // This failure should not be possible, as the array size is known
             T::deserialize(item_array.map_err(|_| Error::DeserializationError)?)
         });
-        
+
         Ok(Product(result?))
     }
 }
@@ -125,21 +123,24 @@ where
 mod tests {
     use super::*;
     use crate::groups::ristretto255::RistrettoElement;
-    use hybrid_array::typenum::{U3, U32, Sum, Prod, Unsigned};
+    use hybrid_array::typenum::{Prod, Sum, U3, U32, Unsigned};
 
     #[test]
     fn test_pair_element_serialization() {
         let p = Pair(RistrettoElement::default(), RistrettoElement::default());
         let serialized: Array<u8, Sum<U32, U32>> = p.serialize(); // U32 for RistrettoElement
-        assert_eq!(serialized.as_slice().len(), <Sum<U32, U32> as Unsigned>::USIZE);
-        let deserialized = Pair::<RistrettoElement, RistrettoElement>::deserialize(serialized).unwrap();
+        assert_eq!(
+            serialized.as_slice().len(),
+            <Sum<U32, U32> as Unsigned>::USIZE
+        );
+        let deserialized =
+            Pair::<RistrettoElement, RistrettoElement>::deserialize(serialized).unwrap();
         assert_eq!(p.0, deserialized.0);
         assert_eq!(p.1, deserialized.1);
     }
 
     #[test]
-    fn test_product_element_serialization() { 
-        
+    fn test_product_element_serialization() {
         let e1 = RistrettoElement::default();
         let e2 = RistrettoElement::default();
         let e3 = RistrettoElement::default();
@@ -148,7 +149,10 @@ mod tests {
 
         let serialized = r.serialize();
         let _byte_form: [u8; 96] = serialized.into();
-        assert_eq!(serialized.as_slice().len(), <Prod<U32, U3> as Unsigned>::USIZE); // U32 for RistrettoElement
+        assert_eq!(
+            serialized.as_slice().len(),
+            <Prod<U32, U3> as Unsigned>::USIZE
+        ); // U32 for RistrettoElement
         assert_eq!(<Prod<U32, U3> as Unsigned>::USIZE, 32 * 3);
         let deserialized = Product::<RistrettoElement, U3>::deserialize(serialized).unwrap();
 

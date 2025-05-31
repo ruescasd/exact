@@ -2,10 +2,10 @@ use crate::serialization_hybrid::{Error as SerError, FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
+use hybrid_array::Array as HybridArray;
+use hybrid_array::typenum::U32;
 use rand::RngCore;
 use sha3::digest::Digest;
-use hybrid_array::typenum::U32;
-use hybrid_array::Array as HybridArray;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RistrettoScalar(pub DalekScalar);
@@ -93,7 +93,8 @@ impl<'a, 'b> std::ops::Sub<&'b RistrettoScalar> for &'a RistrettoScalar {
     }
 }
 
-impl std::ops::Mul for RistrettoScalar { // Note: GroupScalar uses CoreOpsMul which is std::ops::Mul
+impl std::ops::Mul for RistrettoScalar {
+    // Note: GroupScalar uses CoreOpsMul which is std::ops::Mul
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
         RistrettoScalar(self.0 * rhs.0)
@@ -131,7 +132,8 @@ impl FSerializable<U32> for RistrettoScalar {
     fn deserialize(buffer: HybridArray<u8, U32>) -> Result<Self, SerError> {
         // DalekScalar::from_canonical_bytes returns CtOption<DalekScalar>
         // Convert CtOption to Option, then to Result<RistrettoScalar, SerError>
-        match DalekScalar::from_canonical_bytes(buffer.0).into() { // Use .0 and .into()
+        match DalekScalar::from_canonical_bytes(buffer.0).into() {
+            // Use .0 and .into()
             Some(s) => Ok(RistrettoScalar(s)),
             None => Err(SerError::DeserializationError),
         }
@@ -149,7 +151,7 @@ impl Default for RistrettoScalar {
 #[cfg(test)]
 mod tests {
     use super::*; // RistrettoScalar
-    use crate::serialization_hybrid::{FSerializable};
+    use crate::serialization_hybrid::FSerializable;
     use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
     use rand::thread_rng;
 
@@ -160,25 +162,35 @@ mod tests {
 
         // Serialize
         let serialized_data = scalar.serialize();
-        assert_eq!(serialized_data.as_slice().len(), U32::USIZE, "Serialized length mismatch");
+        assert_eq!(
+            serialized_data.as_slice().len(),
+            U32::USIZE,
+            "Serialized length mismatch"
+        );
 
         // Deserialize
-        let deserialized_scalar = RistrettoScalar::deserialize(serialized_data).expect("Deserialization failed");
+        let deserialized_scalar =
+            RistrettoScalar::deserialize(serialized_data).expect("Deserialization failed");
 
-        assert_eq!(scalar, deserialized_scalar, "Original and deserialized scalars do not match");
+        assert_eq!(
+            scalar, deserialized_scalar,
+            "Original and deserialized scalars do not match"
+        );
 
         // Test zero
         let zero_scalar = RistrettoScalar::zero();
         let serialized_zero = zero_scalar.serialize();
         assert_eq!(serialized_zero.as_slice().len(), U32::USIZE);
-        let deserialized_zero = RistrettoScalar::deserialize(serialized_zero).expect("Deserialization failed");
+        let deserialized_zero =
+            RistrettoScalar::deserialize(serialized_zero).expect("Deserialization failed");
         assert_eq!(zero_scalar, deserialized_zero);
 
         // Test one
         let one_scalar = RistrettoScalar::one();
         let serialized_one = one_scalar.serialize();
         assert_eq!(serialized_one.as_slice().len(), U32::USIZE);
-        let deserialized_one = RistrettoScalar::deserialize(serialized_one).expect("Deserialization failed");
+        let deserialized_one =
+            RistrettoScalar::deserialize(serialized_one).expect("Deserialization failed");
         assert_eq!(one_scalar, deserialized_one);
     }
 }
