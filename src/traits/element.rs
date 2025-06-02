@@ -5,10 +5,8 @@ use core::fmt::Debug;
 use hybrid_array::ArraySize;
 
 pub trait GroupElement: Size + Debug + Sized {
-    // Associated type for the scalar field of this group element
     type Scalar: GroupScalar;
 
-    // Group operations
     fn identity() -> Self;
     fn add_element(&self, other: &Self) -> Self;
     fn negate_element(&self) -> Self;
