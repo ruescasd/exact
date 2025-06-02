@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_ristretto_scalar_hybrid_serialization() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let scalar = RistrettoScalar::random(&mut rng); // Test with a random scalar
 
         // Serialize

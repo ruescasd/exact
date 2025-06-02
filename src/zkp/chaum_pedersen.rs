@@ -35,7 +35,7 @@ where
       G::Element: Size,
       G::Element: FSerializable<<G::Element as Size>::SizeType>,
 {
-    let mut rng = rng::OsRng;
+    let mut rng = rng::DefaultRng;
     let v_scalar = G::Scalar::random(&mut rng);
     let t1_element = g1.scalar_mul(&v_scalar);
     let t2_element = g2.scalar_mul(&v_scalar);
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_chaum_pedersen_proof_valid() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let secret_x_dalek_scalar = DalekScalar::random(&mut rng);
         let secret_x = RistrettoScalar::new(secret_x_dalek_scalar);
         let g1 = get_basepoint_g();
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_chaum_pedersen_proof_serialization() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let secret_x_dalek_scalar = DalekScalar::random(&mut rng);
         let secret_x = RistrettoScalar::new(secret_x_dalek_scalar);
         let g1 = get_basepoint_g();
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_chaum_pedersen_proof_invalid_tampered_response() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let secret_x_dalek_scalar = DalekScalar::random(&mut rng);
         let secret_x = RistrettoScalar::new(secret_x_dalek_scalar);
         let g1 = get_basepoint_g();

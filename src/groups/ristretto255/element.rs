@@ -101,14 +101,6 @@ impl FSerializable<U32> for RistrettoElement {
     }
 }
 
-// Add Default implementation if not already present and needed by GroupElement or other uses.
-// RistrettoPoint::identity() can be used for a default.
-impl Default for RistrettoElement {
-    fn default() -> Self {
-        Self::identity()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*; // RistrettoElement
@@ -138,21 +130,15 @@ mod tests {
             "Original and deserialized elements do not match"
         );
 
-        // Test with a non-identity element if possible (e.g., generator if easily accessible or another known point)
-        // For Ristretto, the generator is not directly exposed in RistrettoElement itself,
-        // but through CryptoGroup. For a self-contained test, identity is fine.
-        // If we had a Ristretto255Group instance here (which might be complex for a unit test),
-        // we could get TestGroup::generator().
-        // Let's try scalar multiplication of identity by one (which should be identity)
-        // Need a RistrettoScalar for this.
-        let scalar_one = RistrettoScalar::one(); // Assuming RistrettoScalar is accessible and has one()
-        let another_element = element.scalar_mul(&scalar_one); // identity * 1 = identity
+        let scalar_one = RistrettoScalar::one(); 
+        let another_element = element.scalar_mul(&scalar_one); 
 
         let serialized_another = another_element.serialize();
-        assert_eq!(serialized_another.as_slice().len(), U32::USIZE);
+        assert_eq!(serialized_another.len(), U32::USIZE);
+        
         let deserialized_another =
             RistrettoElement::deserialize(serialized_another).expect("Deserialization failed");
         assert_eq!(another_element, deserialized_another);
-        assert_eq!(element, another_element); // identity * 1 = identity
+        assert_eq!(element, another_element);
     }
 }

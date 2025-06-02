@@ -65,7 +65,6 @@ where
         let (view1, view2) = buffer.split::<A::SizeType>();
         let arr1 = view1.to_owned();
         let arr2 = view2.to_owned();
-        // A::deserialize and B::deserialize now return Result
         let val_a = A::deserialize(arr1)?;
         let val_b = B::deserialize(arr2)?;
         Ok(Pair(val_a, val_b))
@@ -110,9 +109,10 @@ where
             let end = start + T::SizeType::USIZE;
 
             let item_array: Result<Array<u8, T::SizeType>, _> = buffer[start..end].try_into();
-
             // This failure should not be possible, as the array size is known
-            T::deserialize(item_array.map_err(|_| Error::DeserializationError)?)
+            let item_array = item_array.map_err(|_| Error::DeserializationError)?;
+
+            T::deserialize(item_array)
         });
 
         Ok(Product(result?))
@@ -122,15 +122,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::groups::ristretto255::RistrettoElement;
+    use crate::groups::{ristretto255::RistrettoElement, Ristretto255Group};
+    use crate::traits::CryptoGroup;
     use hybrid_array::typenum::{Prod, Sum, U3, U32, Unsigned};
 
     #[test]
     fn test_pair_element_serialization() {
-        let p = Pair(RistrettoElement::default(), RistrettoElement::default());
-        let serialized: Array<u8, Sum<U32, U32>> = p.serialize(); // U32 for RistrettoElement
+        let e1 = Ristretto255Group::random_element();
+        let e2 = Ristretto255Group::random_element();
+        let p = Pair(e1, e2);
+        let serialized: Array<u8, Sum<U32, U32>> = p.serialize();
+        let _byte_form: [u8; 64] = serialized.into();
         assert_eq!(
-            serialized.as_slice().len(),
+            serialized.len(),
             <Sum<U32, U32> as Unsigned>::USIZE
         );
         let deserialized =
@@ -141,16 +145,16 @@ mod tests {
 
     #[test]
     fn test_product_element_serialization() {
-        let e1 = RistrettoElement::default();
-        let e2 = RistrettoElement::default();
-        let e3 = RistrettoElement::default();
+        let e1 = Ristretto255Group::random_element();
+        let e2 = Ristretto255Group::random_element();
+        let e3 = Ristretto255Group::random_element();
 
         let r = Product(Array::<RistrettoElement, U3>::from([e1, e2, e3]));
 
         let serialized = r.serialize();
         let _byte_form: [u8; 96] = serialized.into();
         assert_eq!(
-            serialized.as_slice().len(),
+            serialized.len(),
             <Prod<U32, U3> as Unsigned>::USIZE
         ); // U32 for RistrettoElement
         assert_eq!(<Prod<U32, U3> as Unsigned>::USIZE, 32 * 3);

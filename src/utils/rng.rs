@@ -5,7 +5,7 @@
 //
 // All cryptographic operations requiring randomness should default to using this
 // unless a specific RNG instance is explicitly passed (for testing or other reasons).
-pub use rand::rngs::OsRng; // Changed from thread_rng
+pub use rand::rngs::OsRng as DefaultRng;
 
 // We could also add a wrapper function if more complex default setup was ever needed:
 // use rand::{CryptoRng, RngCore};

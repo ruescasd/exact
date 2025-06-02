@@ -8,7 +8,7 @@ use crate::traits::group::CryptoGroup;
 
 use crate::utils;
 
-use curve25519_dalek::constants as dalek_constants;
+use curve25519_dalek::{constants as dalek_constants, RistrettoPoint, Scalar};
 use sha3::Sha3_512; // Added for RistrettoScalar::from_hash
 
 /// Marker struct for the Ristretto255 group implementation.
@@ -32,5 +32,17 @@ impl CryptoGroup for Ristretto255Group {
         // RistrettoScalar::from_hash needs the concrete Digest type.
         // new_default_hasher() returns Sha3_512.
         RistrettoScalar::from_hash::<Sha3_512>(hasher)
+    }
+
+    fn random_element() -> Self::Element {
+        let mut rng = utils::rng::DefaultRng;
+        let ret = RistrettoPoint::random(&mut rng);
+        RistrettoElement(ret)
+    }
+
+    fn random_exponent() -> Self::Scalar {
+        let mut rng = utils::rng::DefaultRng;
+        let ret = Scalar::random(&mut rng);
+        RistrettoScalar(ret)
     }
 }

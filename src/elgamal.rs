@@ -2,8 +2,8 @@ use crate::serialization_hybrid::{Error as SerHyError, FSerializable, Pair, Prod
 use crate::traits::element::{ElementN, GroupElement};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
-use core::ops::{Mul as CoreMul}; // For typenum arithmetic bounds
-use hybrid_array::typenum::{NonZero, Prod, Unsigned}; // Assuming U<N> will come from specific type defs
+use core::ops::{Mul as CoreMul};
+use hybrid_array::typenum::{NonZero, Prod, Unsigned};
 use hybrid_array::{Array, ArraySize};
 use crate::utils::rng;
 
@@ -18,12 +18,11 @@ pub trait Decryptable<G: CryptoGroup, P> {
 // --- End New Trait Definitions ---
 
 #[derive(Debug, Clone)]
-// This is also wrong, it should be Pair<G::Element, G::Scalar>
 pub struct KeyPair<G: CryptoGroup>(pub Pair<G::Scalar, G::Element>);
 
 impl<G: CryptoGroup> KeyPair<G> {
     pub fn new() -> Self {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let sk = G::Scalar::random(&mut rng);
         let pk = G::generator().scalar_mul(&sk);
         KeyPair(Pair(sk, pk))
@@ -53,14 +52,12 @@ where
     Pair<G::Scalar, G::Element>: Size,
     Pair<G::Scalar, G::Element>: FSerializable<KeyPairSize<G>>,
 {
-    // Signature should use the explicit Sum type, not Self::SizeType
     fn serialize(
         &self,
     ) -> Array<u8, KeyPairSize<G>> {
         self.0.serialize()
     }
 
-    // Signature should use the explicit Sum type
     fn deserialize(
         buffer: Array<u8, KeyPairSize<G>>,
     ) -> Result<Self, SerHyError> {
@@ -69,10 +66,7 @@ where
     }
 }
 
-// ElGamal Ciphertext: c1 (Element), c2 (Element)
-// Old: ElGamal(Pair<G::Element, G::Element>)
 #[derive(Debug, Clone)]
-// FIXME this is wrong, it should be ElGamal(Pair<G::Element, G::Element>)
 pub struct ElGamal<G: CryptoGroup>(pub Pair<G::Element, G::Element>);
 
 impl<G: CryptoGroup> ElGamal<G> {
@@ -112,13 +106,11 @@ where
     <G::Element as Size>::SizeType: Unsigned + NonZero + ArraySize + CoreAdd<<G::Element as Size>::SizeType>, // Removed incorrect Sub bound
     Sum<<G::Element as Size>::SizeType, <G::Element as Size>::SizeType>: ArraySize
         + core::ops::Sub<<G::Element as Size>::SizeType, Output = <G::Element as Size>::SizeType>,*/
-{
-    // Signature should use the explicit Sum type
+{    
     fn serialize(&self) -> Array<u8, ElGamalSize<G>> {
         self.0.serialize()
     }
 
-    // Signature should use the explicit Sum type
     fn deserialize(buffer: Array<u8, ElGamalSize<G>>) -> Result<Self, SerHyError> {
         let product = Pair::<G::Element, G::Element>::deserialize(buffer)?;
         Ok(ElGamal(product))
@@ -129,7 +121,7 @@ where
 
 impl<G: CryptoGroup> Encryptable<G, ElGamal<G>> for G::Element {
     fn encrypt(&self, key: &KeyPair<G>) -> ElGamal<G> {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let r_scalar = G::Scalar::random(&mut rng);
         let gr = G::generator().scalar_mul(&r_scalar);
         let y_pow_r = key.pkey().scalar_mul(&r_scalar); // Use key.pkey()
@@ -148,9 +140,10 @@ impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G> {
 // --- End Trait Implementations ---
 
 // --- ElGamalN (Ciphertext for multiple elements) ---
-// #[derive(Debug)]
+
 type ElGamalN_<G, LenType> = Product<ElGamal<G>, LenType>;
 type ElGamalNSize<G, LenType> = <ElGamalN_<G, LenType> as Size>::SizeType;
+#[derive(Debug)]
 pub struct ElGamalN<G, LenType>(pub Product<ElGamal<G>, LenType>)
 where
     G: CryptoGroup,
@@ -160,7 +153,6 @@ impl<G, LenType> ElGamalN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    // ElGamalN_<G, LenType>: Size + FSerializable<ElGamalNSize<G, LenType>>,
 {
     pub fn new(ciphertexts: Product<ElGamal<G>, LenType>) -> Self {
         ElGamalN(ciphertexts)
@@ -252,7 +244,7 @@ mod tests {
     use super::*;
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement};
     use hybrid_array::typenum::U3;
-    use std::array; // For LEN = 3 tests
+    use std::array;
 
     #[test]
     fn test_keypair_hybrid_serialization() {
@@ -267,7 +259,7 @@ mod tests {
     fn test_elgamal_hybrid_serialization_and_decryption() {
         let keypair = KeyPair::<Ristretto255Group>::new();
         let message = RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(
-            &mut rng::OsRng,
+            &mut rng::DefaultRng,
         ));
 
         let ciphertext: ElGamal<Ristretto255Group> = message.encrypt(&keypair);
@@ -281,15 +273,13 @@ mod tests {
         assert_eq!(message, decrypted_message);
     }
 
-    // Removed: impl Size for bool { ... } as it's not used and from old system.
-
     #[test]
     fn test_elgamal_n_hybrid_serialization_and_decryption() {
         let keypair = KeyPair::<Ristretto255Group>::new();
 
         let messages_array: [RistrettoElement; U3::USIZE] = array::from_fn(|_| {
             RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(
-                &mut rng::OsRng,
+                &mut rng::DefaultRng,
             ))
         });
         let elements_repeated =
@@ -304,7 +294,6 @@ mod tests {
 
         let decrypted_n: ElementN<Ristretto255Group, U3> = deserialized_en.decrypt(&keypair);
 
-        // Compare original messages with decrypted messages
         for i in 0..U3::USIZE {
             assert_eq!(messages_n.0.0.as_slice()[i], decrypted_n.0.0.as_slice()[i]);
         }

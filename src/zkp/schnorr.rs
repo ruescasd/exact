@@ -9,17 +9,14 @@ use crate::utils::rng;
 pub struct Proof<G: CryptoGroup>(serialization_hybrid::Pair<G::Element, G::Scalar>);
 
 impl<G: CryptoGroup> Proof<G> {
-    /// Constructs a new Proof from its constituent parts.
     pub fn new(t: G::Element, s: G::Scalar) -> Self {
         Proof(serialization_hybrid::Pair(t, s))
     }
 
-    /// Returns the commitment 't' of the proof.
     pub fn commitment(&self) -> &G::Element {
         &self.0.0
     }
 
-    /// Returns the response 's' of the proof.
     pub fn response(&self) -> &G::Scalar {
         &self.0.1
     }
@@ -57,7 +54,7 @@ where
     G::Element: Size + FSerializable<<G::Element as Size>::SizeType> + Clone,
     G::Scalar: Clone,
 {
-    let mut rng = rng::OsRng;
+    let mut rng = rng::DefaultRng;
     let v_scalar = G::Scalar::random(&mut rng);
 
     let t_element = G::generator().scalar_mul(&v_scalar);
@@ -106,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_schnorr_proof_valid() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let secret_x_dalek = DalekScalar::random(&mut rng);
         let secret_x = RistrettoScalar::new(secret_x_dalek);
 
@@ -122,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_schnorr_proof_serialization() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let secret_x_dalek = DalekScalar::random(&mut rng);
         let secret_x = RistrettoScalar::new(secret_x_dalek);
         let public_y_point = RistrettoPoint::mul_base(&secret_x_dalek);
@@ -148,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_schnorr_proof_invalid_tampered_s() {
-        let mut rng = rng::OsRng;
+        let mut rng = rng::DefaultRng;
         let secret_x_dalek = DalekScalar::random(&mut rng);
         let secret_x = RistrettoScalar::new(secret_x_dalek);
 

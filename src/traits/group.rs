@@ -8,4 +8,7 @@ pub trait CryptoGroup {
     fn generator() -> Self::Element;
 
     fn hash_to_scalar(input_slices: &[&[u8]]) -> Self::Scalar;
+
+    fn random_element() -> Self::Element;
+    fn random_exponent() -> Self::Scalar;
 }
