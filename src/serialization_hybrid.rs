@@ -71,7 +71,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Product<T, NLen: ArraySize>(pub Array<T, NLen>);
 
 impl<T, NLen> Product<T, NLen>
@@ -79,9 +79,16 @@ where
     T: Size + Clone,
     NLen: ArraySize,
 {
-    fn uniform(value: &T) -> Self {
+    pub fn uniform(value: &T) -> Self {
         let ret: Array<T, NLen> = Array::from_fn(|_| (*value).clone());
         Self(ret)
+    }
+
+    pub fn map<F, O>(&self, f: F) -> Product<O, NLen>
+    where F: Fn(&T) -> O
+    {
+        let ret = self.0.iter().map(|e| f(e));
+        Product(ret.collect())
     }
 }
 

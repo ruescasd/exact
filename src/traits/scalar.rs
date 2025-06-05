@@ -1,12 +1,11 @@
 use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
-use core::fmt::Debug;
 use core::ops::Mul as CoreMul;
 use hybrid_array::typenum::Prod;
 use hybrid_array::{Array, ArraySize};
 use rand::RngCore;
 
-pub trait GroupScalar: Debug + Sized {
+pub trait GroupScalar: Sized {
     fn zero() -> Self;
     fn one() -> Self;
     fn random<R: RngCore + rand::CryptoRng>(rng: &mut R) -> Self;
@@ -20,7 +19,7 @@ pub trait GroupScalar: Debug + Sized {
 impl<S, LenType> GroupScalar for Product<S, LenType>
 where
     S: GroupScalar,
-    LenType: ArraySize + Debug,
+    LenType: ArraySize,
 {
     fn zero() -> Self {
         let array = Array::from_fn(|_| S::zero());
@@ -60,35 +59,11 @@ where
         let ret: Option<Array<S, LenType>> = self.0.iter().map(|s| s.invert()).collect();
         ret.map(Self)
     }
-    /*
-    fn identity() -> Self {
-        let array = Array::from_fn(|_| E::identity() );
-        Self(array)
-    }
-    fn add_element(&self, other: &Self) -> Self {
-        let pairs  = self.0.iter().zip(other.0.iter());
-        let result = pairs.map(|(a, b): (&E, &E)| a.add_element(&b) );
-        let result: Array<E, LenType> = result.collect();
-        Self(result)
-    }
-    fn negate_element(&self) -> Self {
-        let neg = self.0.iter().map(|e| e.negate_element());
-        let neg = neg.collect();
-        Self(neg)
-    }
-
-     fn scalar_mul(&self, other: &Self::Scalar) -> Self {
-        let pairs = self.0.iter().zip(other.0.iter());
-        let result = pairs.map(|(a, b): (&E, &E::Scalar)| a.scalar_mul(&b) );
-        let result: Array<E, LenType> = result.collect();
-        Self(result)
-    }*/
 }
 
 pub type ExponentN_<G, LenType> = Product<<G as CryptoGroup>::Scalar, LenType>;
 type ExponentNSize<G, LenType> = <Product<<G as CryptoGroup>::Scalar, LenType> as Size>::SizeType;
 
-#[derive(Debug)]
 pub struct ExponentN<G, LenType>(pub ExponentN_<G, LenType>)
 where
     G: CryptoGroup,

@@ -68,8 +68,8 @@ where
 pub struct ElGamal<G: CryptoGroup>(pub Pair<G::Element, G::Element>);
 
 impl<G: CryptoGroup> ElGamal<G> {
-    pub fn new(c1: G::Element, c2: G::Element) -> Self {
-        ElGamal(Pair(c1, c2))
+    pub fn new(gr: G::Element, mhr: G::Element) -> Self {
+        ElGamal(Pair(gr, mhr))
     }
 
     pub fn gr(&self) -> &G::Element {
@@ -131,7 +131,7 @@ impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G> {
 
 type ElGamalN_<G, LenType> = Product<ElGamal<G>, LenType>;
 type ElGamalNSize<G, LenType> = <ElGamalN_<G, LenType> as Size>::SizeType;
-#[derive(Debug)]
+
 pub struct ElGamalN<G, LenType>(pub Product<ElGamal<G>, LenType>)
 where
     G: CryptoGroup,
@@ -183,12 +183,14 @@ impl<G, LenType> Encryptable<G, ElGamalN<G, LenType>> for ElementN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    G::Element: Clone,
+    G::Element: Clone + Size,
+    G::Scalar: Clone + Size,
 {
     fn encrypt(&self, key: &KeyPair<G>) -> ElGamalN<G, LenType> {
-        let encrypted = self.0 .0.clone().map(|element| element.encrypt(key));
+        let encrypted = self.0.map(|element| element.encrypt(key));
 
-        ElGamalN::new(Product(encrypted))
+        ElGamalN::new(encrypted)
+        
     }
 }
 
@@ -209,9 +211,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::groups::ristretto255::RistrettoScalar;
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement};
     use hybrid_array::typenum::Unsigned;
-    use hybrid_array::typenum::U3;
+    use hybrid_array::typenum::{U2, U3};
     use std::array;
 
     #[test]
@@ -250,9 +253,9 @@ mod tests {
                 &mut rng::DefaultRng,
             ))
         });
-        let elements_repeated =
+        let elements_3 =
             Product(Array::<RistrettoElement, U3>::from(messages_array.clone()));
-        let messages_n = ElementN::<Ristretto255Group, U3>::new(elements_repeated);
+        let messages_n = ElementN::<Ristretto255Group, U3>::new(elements_3);
 
         let encrypted_n: ElGamalN<Ristretto255Group, U3> = messages_n.encrypt(&keypair);
 
@@ -264,7 +267,54 @@ mod tests {
 
         for i in 0..U3::USIZE {
             assert_eq!(
-                messages_n.0 .0.as_slice()[i],
+                messages_array[i],
+                decrypted_n.0 .0.as_slice()[i]
+            );
+        }
+    }
+
+    #[test]
+    fn test_elgamal_product_encryption() {
+        let keypair = KeyPair::<Ristretto255Group>::new();
+
+        let messages_array: [RistrettoElement; U3::USIZE] = array::from_fn(|_| {
+            RistrettoElement::new(curve25519_dalek::ristretto::RistrettoPoint::random(
+                &mut rng::DefaultRng,
+            ))
+        });
+        let elements_3 =
+            Product(Array::<RistrettoElement, U3>::from(messages_array.clone()));
+        
+        // encrypt using product operations
+
+        let messages = elements_3.map(|e| {
+            Product::<RistrettoElement, U2>(Array::from([RistrettoElement::identity(), e.clone()]))
+        });
+
+        let rs: Array<Product<RistrettoScalar, U2>, U3> = Array::from_fn(|_| {
+            let mut rng = rng::DefaultRng;
+            let r = RistrettoScalar::random(&mut rng);
+            Product::<RistrettoScalar, U2>::uniform(&r)
+        });
+        let rs = Product(rs);
+        
+        let g = Ristretto255Group::generator();
+        let gh = Product::<RistrettoElement, U2>(Array::from([g, keypair.pkey().clone()]));
+        let ghs: Product<Product<RistrettoElement, U2>, U3> = Product::uniform(&gh);
+        let raised = ghs.scalar_mul(&rs);
+
+        let ms = raised.add_element(&messages);
+
+        let egs = ms.map(|e| ElGamal::<Ristretto255Group>::new(e.0[0].clone(), e.0[1].clone()));
+        let egs = ElGamalN(egs);
+
+        // decrypt normally
+        
+        let decrypted_n: ElementN<Ristretto255Group, U3> = egs.decrypt(&keypair);
+
+        for i in 0..U3::USIZE {
+            assert_eq!(
+                messages_array[i],
                 decrypted_n.0 .0.as_slice()[i]
             );
         }
