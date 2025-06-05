@@ -4,7 +4,7 @@ use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
 use core::ops::Mul as CoreMul;
-use hybrid_array::typenum::Prod;
+use hybrid_array::typenum::{Prod, U2};
 use hybrid_array::{Array, ArraySize};
 
 pub trait Encryptable<G: CryptoGroup, C> {
@@ -61,46 +61,46 @@ where
 }
 
 // FIXME: elgamal really should be a product
-// type ElGamal_<G> = Product<<G as CryptoGroup>::Element, U2>;
-// type ElGamalSize2<G> = <ElGamal_<G> as Size>::SizeType;
+type ElGamal_<G> = Product<<G as CryptoGroup>::Element, U2>;
+type ElGamalSize<G> = <ElGamal_<G> as Size>::SizeType;
 
 #[derive(Debug, Clone)]
-pub struct ElGamal<G: CryptoGroup>(pub Pair<G::Element, G::Element>);
+// For some reason this does not work, even though it should be identical to the below
+// pub struct ElGamal<G: CryptoGroup>(pub ElGamal_<G>);
+pub struct ElGamal<G: CryptoGroup>(pub Product<G::Element, typenum::U2>);
 
 impl<G: CryptoGroup> ElGamal<G> {
     pub fn new(gr: G::Element, mhr: G::Element) -> Self {
-        ElGamal(Pair(gr, mhr))
+        ElGamal(Product::new([gr, mhr]))
     }
 
     pub fn gr(&self) -> &G::Element {
-        &(self.0).0
+        &(self.0).0[0]
     }
 
     pub fn mhr(&self) -> &G::Element {
-        &(self.0).1
+        &(self.0).0[1]
     }
 }
 
-type ElGamalSize<G> =
-    <Pair<<G as CryptoGroup>::Element, <G as CryptoGroup>::Element> as Size>::SizeType;
 impl<G: CryptoGroup> Size for ElGamal<G>
 where
-    Pair<G::Element, G::Element>: Size,
+    Product<G::Element, U2>: Size,
 {
     type SizeType = ElGamalSize<G>;
 }
 
 impl<G: CryptoGroup> FSerializable<ElGamalSize<G>> for ElGamal<G>
 where
-    Pair<G::Element, G::Element>: Size,
-    Pair<G::Element, G::Element>: FSerializable<ElGamalSize<G>>,
+    Product<G::Element, U2>: Size,
+    Product<G::Element, U2>: FSerializable<ElGamalSize<G>>,
 {
     fn serialize(&self) -> Array<u8, ElGamalSize<G>> {
         self.0.serialize()
     }
 
     fn deserialize(buffer: Array<u8, ElGamalSize<G>>) -> Result<Self, SerHyError> {
-        let product = Pair::<G::Element, G::Element>::deserialize(buffer)?;
+        let product = Product::<G::Element, U2>::deserialize(buffer)?;
         Ok(ElGamal(product))
     }
 }

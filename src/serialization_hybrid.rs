@@ -76,10 +76,16 @@ pub struct Product<T, NLen: ArraySize>(pub Array<T, NLen>);
 
 impl<T, NLen> Product<T, NLen>
 where
-    T: Size + Clone,
+    // T: Clone,
     NLen: ArraySize,
 {
-    pub fn uniform(value: &T) -> Self {
+    pub fn new<const N: usize>(array: [T; N]) -> Self 
+    where NLen: ArraySize<ArrayType<T> = [T; N]> 
+    {
+        Self(Array::from(array))
+    }
+
+    pub fn uniform(value: &T) -> Self where T: Clone {
         let ret: Array<T, NLen> = Array::from_fn(|_| (*value).clone());
         Self(ret)
     }
