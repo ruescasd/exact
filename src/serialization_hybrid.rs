@@ -1,6 +1,6 @@
 use hybrid_array::{
-    Array, ArraySize,
     typenum::{Prod, Sum, Unsigned},
+    Array, ArraySize,
 };
 
 use core::fmt;
@@ -74,6 +74,17 @@ where
 #[derive(Debug)]
 pub struct Product<T, NLen: ArraySize>(pub Array<T, NLen>);
 
+impl<T, NLen> Product<T, NLen>
+where
+    T: Size + Clone,
+    NLen: ArraySize,
+{
+    fn uniform(value: &T) -> Self {
+        let ret: Array<T, NLen> = Array::from_fn(|_| (*value).clone());
+        Self(ret)
+    }
+}
+
 impl<T, NLen> Size for Product<T, NLen>
 where
     T: Size,
@@ -124,7 +135,7 @@ mod tests {
     use super::*;
     use crate::groups::{ristretto255::RistrettoElement, Ristretto255Group};
     use crate::traits::CryptoGroup;
-    use hybrid_array::typenum::{Prod, Sum, U3, U32, Unsigned};
+    use hybrid_array::typenum::{Prod, Sum, Unsigned, U3, U32};
 
     #[test]
     fn test_pair_element_serialization() {
@@ -133,10 +144,7 @@ mod tests {
         let p = Pair(e1, e2);
         let serialized: Array<u8, Sum<U32, U32>> = p.serialize();
         let _byte_form: [u8; 64] = serialized.into();
-        assert_eq!(
-            serialized.len(),
-            <Sum<U32, U32> as Unsigned>::USIZE
-        );
+        assert_eq!(serialized.len(), <Sum<U32, U32> as Unsigned>::USIZE);
         let deserialized =
             Pair::<RistrettoElement, RistrettoElement>::deserialize(serialized).unwrap();
         assert_eq!(p.0, deserialized.0);
@@ -153,10 +161,7 @@ mod tests {
 
         let serialized = r.serialize();
         let _byte_form: [u8; 96] = serialized.into();
-        assert_eq!(
-            serialized.len(),
-            <Prod<U32, U3> as Unsigned>::USIZE
-        ); // U32 for RistrettoElement
+        assert_eq!(serialized.len(), <Prod<U32, U3> as Unsigned>::USIZE); // U32 for RistrettoElement
         assert_eq!(<Prod<U32, U3> as Unsigned>::USIZE, 32 * 3);
         let deserialized = Product::<RistrettoElement, U3>::deserialize(serialized).unwrap();
 

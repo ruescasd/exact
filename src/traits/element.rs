@@ -2,9 +2,10 @@ use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use core::fmt::Debug;
+use hybrid_array::Array;
 use hybrid_array::ArraySize;
 
-pub trait GroupElement: Size + Debug + Sized {
+pub trait GroupElement: Debug + Sized {
     type Scalar: GroupScalar;
 
     fn identity() -> Self;
@@ -14,27 +15,56 @@ pub trait GroupElement: Size + Debug + Sized {
 }
 
 type ElementN_<G, LenType> = Product<<G as CryptoGroup>::Element, LenType>;
+
+impl<E, LenType> GroupElement for Product<E, LenType>
+where
+    E: GroupElement,
+    LenType: ArraySize + Debug,
+{
+    type Scalar = Product<E::Scalar, LenType>;
+
+    fn identity() -> Self {
+        let array = Array::from_fn(|_| E::identity());
+        Self(array)
+    }
+    fn add_element(&self, other: &Self) -> Self {
+        let pairs = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&E, &E)| a.add_element(&b));
+        let result: Array<E, LenType> = result.collect();
+        Self(result)
+    }
+    fn negate_element(&self) -> Self {
+        let neg = self.0.iter().map(|e| e.negate_element());
+        let neg = neg.collect();
+        Self(neg)
+    }
+
+    fn scalar_mul(&self, other: &Self::Scalar) -> Self {
+        let pairs = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&E, &E::Scalar)| a.scalar_mul(&b));
+        let result: Array<E, LenType> = result.collect();
+        Self(result)
+    }
+}
+
 type ElementNSize<G, LenType> = <Product<<G as CryptoGroup>::Element, LenType> as Size>::SizeType;
 
 #[derive(Debug)]
 pub struct ElementN<G, LenType>(pub ElementN_<G, LenType>)
 where
     G: CryptoGroup,
-    LenType: ArraySize,
-    ElementN_<G, LenType>: Size;
+    LenType: ArraySize;
 
 impl<G, LenType> ElementN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    ElementN_<G, LenType>: Size,
 {
     pub fn new(elements: ElementN_<G, LenType>) -> Self {
         ElementN(elements)
     }
 }
-impl<G, LenType> FSerializable<ElementNSize<G, LenType>>
-    for ElementN<G, LenType>
+impl<G, LenType> FSerializable<ElementNSize<G, LenType>> for ElementN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
@@ -47,8 +77,6 @@ where
     fn deserialize(
         buffer: hybrid_array::Array<u8, ElementNSize<G, LenType>>,
     ) -> Result<Self, crate::serialization_hybrid::Error> {
-        Ok(ElementN(ElementN_::<G, LenType>::deserialize(
-            buffer,
-        )?))
+        Ok(ElementN(ElementN_::<G, LenType>::deserialize(buffer)?))
     }
 }

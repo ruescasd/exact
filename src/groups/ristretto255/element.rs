@@ -4,8 +4,8 @@ use crate::traits::element::GroupElement;
 use core::fmt::Debug;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::traits::Identity;
-use hybrid_array::Array as HybridArray;
-use hybrid_array::typenum::U32; // Using U32 for size // Using HybridArray
+use hybrid_array::typenum::U32;
+use hybrid_array::Array as HybridArray; // Using U32 for size // Using HybridArray
 
 #[derive(Clone, Debug, PartialEq, Eq)] // Added Eq
 pub struct RistrettoElement(pub RistrettoPoint);
@@ -106,8 +106,8 @@ mod tests {
     use super::*; // RistrettoElement
     use crate::serialization_hybrid::FSerializable;
     use crate::traits::scalar::GroupScalar;
-    use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned // Added GroupScalar for ::one()
-    // RistrettoElement::identity() and other methods can be used to get instances.
+    use hybrid_array::typenum::{Unsigned, U32}; // Added Unsigned // Added GroupScalar for ::one()
+                                                // RistrettoElement::identity() and other methods can be used to get instances.
 
     #[test]
     fn test_ristretto_element_hybrid_serialization() {
@@ -130,12 +130,12 @@ mod tests {
             "Original and deserialized elements do not match"
         );
 
-        let scalar_one = RistrettoScalar::one(); 
-        let another_element = element.scalar_mul(&scalar_one); 
+        let scalar_one = RistrettoScalar::one();
+        let another_element = element.scalar_mul(&scalar_one);
 
         let serialized_another = another_element.serialize();
         assert_eq!(serialized_another.len(), U32::USIZE);
-        
+
         let deserialized_another =
             RistrettoElement::deserialize(serialized_another).expect("Deserialization failed");
         assert_eq!(another_element, deserialized_another);

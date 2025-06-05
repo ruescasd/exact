@@ -2,8 +2,8 @@ use crate::serialization_hybrid::{Error as SerError, FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 use curve25519_dalek::scalar::Scalar as DalekScalar;
-use hybrid_array::Array as HybridArray;
 use hybrid_array::typenum::U32;
+use hybrid_array::Array as HybridArray;
 use rand::RngCore;
 use sha3::digest::Digest;
 
@@ -153,7 +153,7 @@ mod tests {
     use super::*; // RistrettoScalar
     use crate::serialization_hybrid::FSerializable;
     use crate::utils::rng;
-    use hybrid_array::typenum::{U32, Unsigned}; // Added Unsigned
+    use hybrid_array::typenum::{Unsigned, U32}; // Added Unsigned
 
     #[test]
     fn test_ristretto_scalar_hybrid_serialization() {

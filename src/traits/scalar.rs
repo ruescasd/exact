@@ -2,11 +2,11 @@ use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
 use core::fmt::Debug;
 use core::ops::Mul as CoreMul;
-use hybrid_array::ArraySize;
 use hybrid_array::typenum::Prod;
+use hybrid_array::{Array, ArraySize};
 use rand::RngCore;
 
-pub trait GroupScalar: Size + Debug + Sized {
+pub trait GroupScalar: Debug + Sized {
     fn zero() -> Self;
     fn one() -> Self;
     fn random<R: RngCore + rand::CryptoRng>(rng: &mut R) -> Self;
@@ -17,7 +17,75 @@ pub trait GroupScalar: Size + Debug + Sized {
     fn invert(&self) -> Option<Self>;
 }
 
-type ExponentN_<G, LenType> = Product<<G as CryptoGroup>::Scalar, LenType>;
+impl<S, LenType> GroupScalar for Product<S, LenType>
+where
+    S: GroupScalar,
+    LenType: ArraySize + Debug,
+{
+    fn zero() -> Self {
+        let array = Array::from_fn(|_| S::zero());
+        Self(array)
+    }
+    fn one() -> Self {
+        let array = Array::from_fn(|_| S::one());
+        Self(array)
+    }
+    fn random<R: RngCore + rand::CryptoRng>(rng: &mut R) -> Self {
+        let array = Array::from_fn(|_| S::random(rng));
+        Self(array)
+    }
+    fn add(&self, other: &Self) -> Self {
+        let pairs = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&S, &S)| a.add(&b));
+        let result: Array<S, LenType> = result.collect();
+        Self(result)
+    }
+    fn sub(&self, other: &Self) -> Self {
+        let pairs = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&S, &S)| a.sub(&b));
+        let result: Array<S, LenType> = result.collect();
+        Self(result)
+    }
+    fn mul(&self, other: &Self) -> Self {
+        let pairs = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&S, &S)| a.mul(&b));
+        let result: Array<S, LenType> = result.collect();
+        Self(result)
+    }
+    fn negate(&self) -> Self {
+        let ret = self.0.iter().map(|s| s.negate()).collect();
+        Self(ret)
+    }
+    fn invert(&self) -> Option<Self> {
+        let ret: Option<Array<S, LenType>> = self.0.iter().map(|s| s.invert()).collect();
+        ret.map(Self)
+    }
+    /*
+    fn identity() -> Self {
+        let array = Array::from_fn(|_| E::identity() );
+        Self(array)
+    }
+    fn add_element(&self, other: &Self) -> Self {
+        let pairs  = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&E, &E)| a.add_element(&b) );
+        let result: Array<E, LenType> = result.collect();
+        Self(result)
+    }
+    fn negate_element(&self) -> Self {
+        let neg = self.0.iter().map(|e| e.negate_element());
+        let neg = neg.collect();
+        Self(neg)
+    }
+
+     fn scalar_mul(&self, other: &Self::Scalar) -> Self {
+        let pairs = self.0.iter().zip(other.0.iter());
+        let result = pairs.map(|(a, b): (&E, &E::Scalar)| a.scalar_mul(&b) );
+        let result: Array<E, LenType> = result.collect();
+        Self(result)
+    }*/
+}
+
+pub type ExponentN_<G, LenType> = Product<<G as CryptoGroup>::Scalar, LenType>;
 type ExponentNSize<G, LenType> = <Product<<G as CryptoGroup>::Scalar, LenType> as Size>::SizeType;
 
 #[derive(Debug)]
@@ -42,12 +110,11 @@ where
     }
 }
 
-impl<G, LenType> FSerializable<ExponentNSize<G, LenType>>
-    for ExponentN<G, LenType>
+impl<G, LenType> FSerializable<ExponentNSize<G, LenType>> for ExponentN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    G::Scalar: FSerializable<<G::Scalar as Size>::SizeType>,
+    G::Scalar: Size + FSerializable<<G::Scalar as Size>::SizeType>,
     <G::Scalar as Size>::SizeType: CoreMul<LenType>,
     Prod<<G::Scalar as Size>::SizeType, LenType>: ArraySize,
 {
@@ -58,8 +125,6 @@ where
     fn deserialize(
         buffer: hybrid_array::Array<u8, ExponentNSize<G, LenType>>,
     ) -> Result<Self, crate::serialization_hybrid::Error> {
-        Ok(ExponentN(ExponentN_::<G, LenType>::deserialize(
-            buffer,
-        )?))
+        Ok(ExponentN(ExponentN_::<G, LenType>::deserialize(buffer)?))
     }
 }

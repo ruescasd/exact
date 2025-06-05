@@ -14,15 +14,16 @@ impl<G: CryptoGroup> Proof<G> {
     }
 
     pub fn commitment(&self) -> &G::Element {
-        &self.0.0
+        &self.0 .0
     }
 
     pub fn response(&self) -> &G::Scalar {
-        &self.0.1
+        &self.0 .1
     }
 }
 
-type SchnorrProof_<G> = serialization_hybrid::Pair<<G as CryptoGroup>::Element, <G as CryptoGroup>::Scalar>;
+type SchnorrProof_<G> =
+    serialization_hybrid::Pair<<G as CryptoGroup>::Element, <G as CryptoGroup>::Scalar>;
 type SchnorrProofSize<G> = <SchnorrProof_<G> as Size>::SizeType;
 
 impl<G: CryptoGroup> Size for Proof<G>
@@ -95,11 +96,11 @@ where
 mod tests {
     use super::*;
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
-    use hybrid_array::typenum::Unsigned;
     use crate::serialization_hybrid::FSerializable;
+    use crate::utils::rng;
     use curve25519_dalek::ristretto::RistrettoPoint;
     use curve25519_dalek::scalar::Scalar as DalekScalar;
-    use crate::utils::rng;
+    use hybrid_array::typenum::Unsigned;
 
     #[test]
     fn test_schnorr_proof_valid() {
@@ -128,7 +129,10 @@ mod tests {
         let proof = prove::<Ristretto255Group>(&secret_x, &public_y);
 
         let proof_bytes = proof.serialize();
-        assert_eq!(proof_bytes.len(), <Proof::<Ristretto255Group> as Size>::SizeType::to_usize());
+        assert_eq!(
+            proof_bytes.len(),
+            <Proof::<Ristretto255Group> as Size>::SizeType::to_usize()
+        );
 
         let parsed_proof_result = Proof::<Ristretto255Group>::deserialize(proof_bytes);
         assert!(parsed_proof_result.is_ok());
@@ -138,7 +142,7 @@ mod tests {
             verify::<Ristretto255Group>(&public_y, &parsed_proof),
             "Verification of a parsed valid proof should succeed"
         );
-        
+
         assert_eq!(proof.commitment(), parsed_proof.commitment());
         assert_eq!(proof.response(), parsed_proof.response());
     }

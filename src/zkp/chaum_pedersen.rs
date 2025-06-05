@@ -1,26 +1,25 @@
 use crate::serialization_hybrid::{FSerializable, Pair, Product, Size};
-use hybrid_array::typenum::{U2};
-use hybrid_array::{Array};
 use crate::traits::element::GroupElement;
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
+use hybrid_array::typenum::U2;
+use hybrid_array::Array;
 
 #[derive(Debug)]
 pub struct CPProof<G: CryptoGroup>(Pair<Product<G::Element, U2>, G::Scalar>);
 
-impl<G: CryptoGroup> CPProof<G>
-{
+impl<G: CryptoGroup> CPProof<G> {
     pub fn new(c1: G::Element, c2: G::Element, response: G::Scalar) -> Self {
         CPProof(Pair(Product(Array([c1, c2])), response))
     }
 
     pub fn commitments(&self) -> &Array<G::Element, U2> {
-        &self.0.0.0
+        &self.0 .0 .0
     }
 
     pub fn response(&self) -> &G::Scalar {
-        &self.0.1
+        &self.0 .1
     }
 }
 
@@ -31,9 +30,9 @@ pub fn prove<G: CryptoGroup>(
     public_y1: &G::Element,
     public_y2: &G::Element,
 ) -> CPProof<G>
-where 
-      G::Element: Size,
-      G::Element: FSerializable<<G::Element as Size>::SizeType>,
+where
+    G::Element: Size,
+    G::Element: FSerializable<<G::Element as Size>::SizeType>,
 {
     let mut rng = rng::DefaultRng;
     let v_scalar = G::Scalar::random(&mut rng);
@@ -65,9 +64,9 @@ pub fn verify<G: CryptoGroup>(
     public_y2: &G::Element,
     proof: &CPProof<G>,
 ) -> bool
-      where 
-      G::Element: Size + Eq + PartialEq,
-      G::Element: FSerializable<<G::Element as Size>::SizeType>,
+where
+    G::Element: Size + Eq + PartialEq,
+    G::Element: FSerializable<<G::Element as Size>::SizeType>,
 {
     let commitments = proof.commitments();
     let s_scalar = proof.response();
@@ -100,13 +99,15 @@ type CommitmentProduct<G> = Product<<G as CryptoGroup>::Element, U2>;
 type CPProof_<G> = Pair<CommitmentProduct<G>, <G as CryptoGroup>::Scalar>;
 type CPProofSize<G> = <CPProof_<G> as Size>::SizeType;
 
-impl<G: CryptoGroup> Size for CPProof<G> 
-where CPProof_<G>: Size {
+impl<G: CryptoGroup> Size for CPProof<G>
+where
+    CPProof_<G>: Size,
+{
     type SizeType = CPProofSize<G>;
 }
 
 impl<G: CryptoGroup> FSerializable<CPProofSize<G>> for CPProof<G>
-where 
+where
     CPProof_<G>: Size,
     CPProof_<G>: FSerializable<CPProofSize<G>>,
 {
@@ -127,10 +128,10 @@ where
 mod tests {
     use super::*;
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
-    use hybrid_array::typenum::Unsigned;
+    use crate::utils::rng;
     use curve25519_dalek::constants as dalek_constants;
     use curve25519_dalek::scalar::Scalar as DalekScalar;
-    use crate::utils::rng;
+    use hybrid_array::typenum::Unsigned;
 
     fn get_basepoint_g() -> RistrettoElement {
         RistrettoElement::new(dalek_constants::RISTRETTO_BASEPOINT_POINT)
@@ -161,11 +162,14 @@ mod tests {
         let g2 = get_basepoint_g();
         let public_y1 = g1.scalar_mul(&secret_x);
         let public_y2 = g2.scalar_mul(&secret_x);
-        let proof = prove::<Ristretto255Group>(&secret_x, &g1, &g2, &public_y1, &public_y2);        
+        let proof = prove::<Ristretto255Group>(&secret_x, &g1, &g2, &public_y1, &public_y2);
         let proof_bytes = proof.serialize();
 
-        assert_eq!(proof_bytes.len(), <CPProof::<Ristretto255Group> as Size>::SizeType::to_usize());
-        
+        assert_eq!(
+            proof_bytes.len(),
+            <CPProof::<Ristretto255Group> as Size>::SizeType::to_usize()
+        );
+
         let parsed_proof = CPProof::<Ristretto255Group>::deserialize(proof_bytes).unwrap();
         assert!(
             verify::<Ristretto255Group>(&g1, &g2, &public_y1, &public_y2, &parsed_proof),
@@ -203,8 +207,11 @@ mod tests {
         let original_s_dalek = proof.response().0;
         let tampered_s_dalek_scalar = original_s_dalek + DalekScalar::ONE;
         let tampered_s_ristretto_scalar = RistrettoScalar::new(tampered_s_dalek_scalar);
-        let tampered_proof =
-            CPProof::<Ristretto255Group>::new(proof.commitments().0[0].clone(), proof.commitments().0[1].clone(), tampered_s_ristretto_scalar);
+        let tampered_proof = CPProof::<Ristretto255Group>::new(
+            proof.commitments().0[0].clone(),
+            proof.commitments().0[1].clone(),
+            tampered_s_ristretto_scalar,
+        );
         assert!(
             !verify::<Ristretto255Group>(&g1, &g2, &public_y1, &public_y2, &tampered_proof),
             "Verification of a Chaum-Pedersen proof with a tampered response 's' should fail"
