@@ -4,7 +4,7 @@ use crate::traits::element::{ElementN, GroupElement};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
-use hybrid_array::typenum::{U2, U3};
+use hybrid_array::typenum::{U2, U3, U4};
 use hybrid_array::Array;
 
 type E2<G> = Product<<G as CryptoGroup>::Element, U2>;
@@ -77,21 +77,24 @@ where
     let g_pow_t = big_g.scalar_mul(&t_2);
 
     let challenge: G::Scalar = G::hash_to_scalar(&[
-        big_c.serialize().as_ref(),
-        cb_gs.serialize().as_ref(),
-        g_pow_t.serialize().as_ref(),
+        &big_c.serialize(),
+        &cb_gs.serialize(),
+        &g_pow_t.serialize(),
         // include the statement in the hash
-        ciphertext.serialize().as_ref(),
+        &ciphertext.serialize(),
+        &c_prime.serialize(),
     ]);
 
+    // Challenge: v
+    let v_4 = Product::uniform(&challenge);
+    
     // X=(b,r,s,t) is a preimage.
     // FIXME is this r the one randomly generated or the one used when encrypting?
-    let big_x: Product<G::Scalar, typenum::U4> = Product::new([bit.clone(), r.clone(), s.clone(), t.clone()]);
-    let v_4 = Product::uniform(&challenge);
+    let big_x: Product<G::Scalar, U4> = Product::new([bit.clone(), r.clone(), s.clone(), t.clone()]);
     let vx = v_4.mul(&big_x);
     
     // A = (b, r,s,t). b is the real value, r,s,t is randomly generated above
-    let big_a: Product<G::Scalar, typenum::U4> = Product::new([bit.clone(), r.clone(), s, t]);
+    let big_a: Product<G::Scalar, U4> = Product::new([bit.clone(), r.clone(), s, t]);
     // response D=vX+A
     let big_d = vx.add(&big_a);
     
@@ -99,12 +102,11 @@ where
     let c_prime_inv = c_prime.negate_element();
     let c_prime_2 = ciphertext.0.add_element(&c_prime_inv);
     // Y=(C,C',C'')
-    let big_y: Product<Product<G::Element, U2>, typenum::U3> = Product::new([ciphertext.0.clone(), c_prime.clone(), c_prime_2.clone()]);
+    let big_y: Product<Product<G::Element, U2>, U3> = Product::new([ciphertext.0.clone(), c_prime.clone(), c_prime_2.clone()]);
+    let big_b: Product<Product<G::Element, U2>, U3> = Product::new([big_c, cb_gs, g_pow_t]);
     // Check: Y^vB=f(D)
     // Something does not line up, v is cardinality 4, but big y is cardinality 3..
     
-    // CPProof::<G>::new(...)
-
     None
 }
 /*
