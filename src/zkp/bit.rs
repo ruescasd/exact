@@ -5,6 +5,8 @@ use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
 use hybrid_array::typenum::{U2, U3, U4};
+use wasm_bindgen::prelude::*;
+use std::time::Instant;
 
 // type E2<G> = Product<<G as CryptoGroup>::Element, U2>;
 type Commitment<G> = Product<Product<<G as CryptoGroup>::Element, U2>, U3>;
@@ -212,6 +214,59 @@ where
     );
 
     lhs.eq(&rhs)
+}
+
+#[wasm_bindgen]
+pub fn benchmark_prove(iterations: u32) -> f64 {
+    use crate::elgamal::{ElGamal, KeyPair};
+    use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
+    use crate::traits::scalar::GroupScalar;
+    use crate::traits::GroupElement;
+    use crate::utils::rng;
+    use rand::Rng; // For rng::DefaultRng.gen_bool
+    use crate::serialization_hybrid::Product; // For Product::uniform, Product::new
+    use crate::traits::CryptoGroup; // For Ristretto255Group::generator
+    use typenum; // For typenum::U2
+
+    let g = Ristretto255Group::generator();
+    let keypair = KeyPair::<Ristretto255Group>::new();
+    let mut total_duration = 0.0;
+
+    for _ in 0..iterations {
+        let b = if rng::DefaultRng.gen_bool(0.5) {
+            RistrettoScalar::one()
+        } else {
+            RistrettoScalar::zero()
+        };
+
+        let b_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&b);
+        let message = g.scalar_mul(&b);
+
+        let r = RistrettoScalar::random(&mut rng::DefaultRng);
+        let gr = g.scalar_mul(&r);
+        let hr = keypair.pkey().scalar_mul(&r);
+        let mhr = hr.add_element(&message);
+        let c = ElGamal::<Ristretto255Group>::new(gr, mhr);
+
+        let big_g =
+            Product::<RistrettoElement, typenum::U2>::new([g.clone(), keypair.pkey().clone()]);
+        let s = RistrettoScalar::random(&mut rng::DefaultRng);
+        let s_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&s);
+        let c_pow_b = c.0.scalar_mul(&b_2);
+        let g_pow_s = big_g.scalar_mul(&s_2);
+        let c_prime = c_pow_b.add_element(&g_pow_s);
+
+        let start_time = Instant::now();
+        let _proof = prove(&b, &r, &s, &c, &c_prime, keypair.pkey());
+        let duration = start_time.elapsed();
+        total_duration += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
+    }
+
+    if iterations == 0 {
+        0.0
+    } else {
+        total_duration / iterations as f64
+    }
 }
 
 #[cfg(test)]

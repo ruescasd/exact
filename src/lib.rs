@@ -7,3 +7,5 @@ pub mod utils;
 pub mod elgamal;
 pub mod groups;
 pub mod zkp;
+
+pub use zkp::bit::benchmark_prove;
