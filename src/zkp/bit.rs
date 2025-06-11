@@ -285,7 +285,7 @@ mod tests {
     use rand::Rng;
 
     #[test]
-    fn test_bit_zkp_prove() {
+    fn test_bit_zkp_prove_ristretto() {
         let g = Ristretto255Group::generator();
         let keypair = KeyPair::<Ristretto255Group>::new();
 
@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bit_zkp_prove2() {
+    fn test_bit_zkp_prove_p256() {
         let g = P256Group::generator();
         let keypair = KeyPair::<P256Group>::new();
 
