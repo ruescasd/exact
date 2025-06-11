@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 curve25519-dalek = {version = "4.1.3", features = ["rand_core", "digest"] }
+p256 = { version = "0.13.2", features = ["arithmetic"] }
 rand = { version = "0.8", features = ["std"] }
 sha3 = "0.10"
 hybrid-array = "0.2.0-rc.9"
@@ -12,6 +13,7 @@ typenum = "1.18.0"
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2"
 web-time = "1.1.0"
+base64ct = "1.6.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
