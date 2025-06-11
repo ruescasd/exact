@@ -68,3 +68,34 @@ This library is designed with the following principles and features in mind:
     *   `serialization`: Traits (`FSerializable`, `Size`) and generic structures (`Product`, `Pair`) for byte representation.
     *   `elgamal`: The ElGamal encryption scheme logic, key management, and ciphertext structures.
 *   **Trait-Based API for Cryptography:** Encryption and decryption operations are exposed via the `Encryptable` and `Decryptable` traits, providing a uniform and extensible interface for cryptographic operations.
+
+## WebAssembly Benchmark
+
+This project includes a WebAssembly (WASM) benchmark for the `prove` function in the Zero-Knowledge Proof module. You can run this benchmark in your web browser.
+
+### Prerequisites
+
+- **Rust and Cargo**: Ensure you have a Rust toolchain installed. If not, visit [rust-lang.org](https://www.rust-lang.org/tools/install).
+- **`wasm-pack`**: This tool is used to build Rust-generated WebAssembly. If you don't have it, the `benchmark.ps1` script will attempt to install it, or you can install it manually:
+  ```bash
+  curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+  ```
+
+### Running the Benchmark
+
+The benchmark can be run using the PowerShell script provided:
+
+1.  **Open PowerShell**: Navigate to the root directory of this project in a PowerShell terminal.
+2.  **Execute the script**:
+    ```powershell
+    .\scripts\benchmark.ps1
+    ```
+3.  **Script Actions**:
+    *   The script will first compile the Rust library to WebAssembly using `wasm-pack build --target web --out-dir www/pkg`.
+    *   If the build is successful, it will automatically open the `www/index.html` file in your default web browser.
+4.  **In the Browser**:
+    *   The opened HTML page contains an input field where you can specify the number of iterations for the `benchmark_prove` function.
+    *   Click the "Run Benchmark" button.
+    *   The average execution time for the `prove` function over the specified iterations will be displayed on the page.
+
+If the script fails to open the browser automatically, you can manually open the `www/index.html` file in your web browser after a successful build.

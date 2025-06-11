@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM Benchmark</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px;}
+        label { margin-right: 10px; }
+        input { margin-bottom: 10px; padding: 5px; }
+        button { padding: 8px 15px; }
+        #results { margin-top: 20px; font-weight: bold; white-space: pre;}
+        #error { margin-top: 10px; color: red; }
+    </style>
+</head>
+<body>
+    <h1>WebAssembly Benchmark</h1>
+
+    <div>
+        <label for="iterations">Number of Iterations:</label>
+        <input type="number" id="iterations" value="10" min="1">
+    </div>
+
+    <button id="runBenchmark">Run Benchmark</button>
+
+    <div id="results"></div>
+    <div id="error"></div>
+
+    <script type="module">
+        // Adjust the path to your WASM package name
+        // The default is usually ./pkg/<your_crate_name>.js
+        import init, { benchmark_prove } from './pkg/exact.js';
+
+        const iterationsInput = document.getElementById('iterations');
+        const runBenchmarkButton = document.getElementById('runBenchmark');
+        const resultsDiv = document.getElementById('results');
+        const errorDiv = document.getElementById('error');
+
+        async function run() {
+            try {
+                // Initialize the WASM module
+                await init();
+                resultsDiv.textContent = 'WASM module loaded. Ready to run benchmark.';
+            } catch (e) {
+                console.error("Error loading WASM module:", e);
+                errorDiv.textContent = "Error loading WASM module: " + e.message;
+                runBenchmarkButton.disabled = true;
+                return;
+            }
+
+            runBenchmarkButton.addEventListener('click', async () => {
+                resultsDiv.textContent = 'Running benchmark...';
+                errorDiv.textContent = '';
+                runBenchmarkButton.disabled = true;
+
+                try {
+                    const iterations = parseInt(iterationsInput.value, 10);
+                    if (isNaN(iterations) || iterations <= 0) {
+                        errorDiv.textContent = 'Please enter a valid number of iterations.';
+                        runBenchmarkButton.disabled = false;
+                        return;
+                    }
+
+                    const startTime = performance.now();
+                    const averageTime = benchmark_prove(iterations);
+                    const endTime = performance.now();
+
+                    resultsDiv.textContent = `Benchmark completed for ${iterations} iterations.
+Average encrypt + prove per bit: ${averageTime.toFixed(4)} ms.
+Total JavaScript execution time for benchmark_prove call: ${(endTime - startTime).toFixed(4)} ms.`;
+
+                } catch (e) {
+                    console.error("Error running benchmark:", e);
+                    errorDiv.textContent = "Error running benchmark: " + e.message;
+                } finally {
+                    runBenchmarkButton.disabled = false;
+                }
+            });
+        }
+
+        run();
+    </script>
+</body>
+</html>
