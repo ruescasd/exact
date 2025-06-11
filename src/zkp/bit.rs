@@ -237,7 +237,7 @@ mod tests {
                 RistrettoScalar::zero()
             };
 
-            let b_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&b);
+            let b_2: Product<RistrettoScalar, U2> = Product::uniform(&b);
             let message = g.scalar_mul(&b);
 
             let r = RistrettoScalar::random(&mut rng::DefaultRng);
@@ -247,9 +247,9 @@ mod tests {
             let c = ElGamal::<Ristretto255Group>::new(gr, mhr);
 
             let big_g =
-                Product::<RistrettoElement, typenum::U2>::new([g.clone(), keypair.pkey().clone()]);
+                Product::<RistrettoElement, U2>::new([g.clone(), keypair.pkey().clone()]);
             let s = RistrettoScalar::random(&mut rng::DefaultRng);
-            let s_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&s);
+            let s_2: Product<RistrettoScalar, U2> = Product::uniform(&s);
             let c_pow_b = c.0.scalar_mul(&b_2);
             let g_pow_s = big_g.scalar_mul(&s_2);
             let c_prime = c_pow_b.add_element(&g_pow_s);
