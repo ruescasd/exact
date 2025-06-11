@@ -275,7 +275,9 @@ pub fn benchmark_prove(iterations: u32) -> f64 {
 mod tests {
     use super::*;
     use crate::elgamal::{ElGamal, KeyPair};
+    use crate::groups::p256::{P256Element, P256Scalar};
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
+    use crate::groups::P256Group;
     use crate::serialization_hybrid::Product;
     use crate::traits::scalar::GroupScalar;
     use crate::traits::{CryptoGroup, GroupElement};
@@ -307,6 +309,42 @@ mod tests {
                 Product::<RistrettoElement, U2>::new([g.clone(), keypair.pkey().clone()]);
             let s = RistrettoScalar::random(&mut rng::DefaultRng);
             let s_2: Product<RistrettoScalar, U2> = Product::uniform(&s);
+            let c_pow_b = c.0.scalar_mul(&b_2);
+            let g_pow_s = big_g.scalar_mul(&s_2);
+            let c_prime = c_pow_b.add_element(&g_pow_s);
+
+            let proof = prove(&b, &r, &s, &c, &c_prime, keypair.pkey());
+            let ok = verify(&proof, &c, &c_prime, keypair.pkey());
+
+            assert!(ok);
+        }
+    }
+
+    #[test]
+    fn test_bit_zkp_prove2() {
+        let g = P256Group::generator();
+        let keypair = KeyPair::<P256Group>::new();
+
+        for _ in 0..10 {
+            let b = if rng::DefaultRng.gen_bool(0.5) {
+                P256Scalar::one()
+            } else {
+                P256Scalar::zero()
+            };
+
+            let b_2: Product<P256Scalar, U2> = Product::uniform(&b);
+            let message = g.scalar_mul(&b);
+
+            let r = P256Scalar::random(&mut rng::DefaultRng);
+            let gr = g.scalar_mul(&r);
+            let hr = keypair.pkey().scalar_mul(&r);
+            let mhr = hr.add_element(&message);
+            let c = ElGamal::<P256Group>::new(gr, mhr);
+
+            let big_g =
+                Product::<P256Element, U2>::new([g.clone(), keypair.pkey().clone()]);
+            let s = P256Scalar::random(&mut rng::DefaultRng);
+            let s_2: Product<P256Scalar, U2> = Product::uniform(&s);
             let c_pow_b = c.0.scalar_mul(&b_2);
             let g_pow_s = big_g.scalar_mul(&s_2);
             let c_prime = c_pow_b.add_element(&g_pow_s);
