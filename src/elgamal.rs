@@ -9,6 +9,7 @@ use hybrid_array::{Array, ArraySize};
 
 pub trait Encryptable<G: CryptoGroup, C> {
     fn encrypt(&self, key: &KeyPair<G>) -> C;
+    // fn encrypt_with_r(&self, key: &KeyPair<G>, r: &G::Scalar) -> C;
 }
 
 pub trait Decryptable<G: CryptoGroup, P> {
@@ -116,6 +117,13 @@ impl<G: CryptoGroup> Encryptable<G, ElGamal<G>> for G::Element {
         let mhr = self.add_element(&y_pow_r);
         ElGamal::<G>::new(gr, mhr)
     }
+
+    /*fn encrypt_with_r(&self, key: &KeyPair<G>, r_scalar: &G::Scalar) -> ElGamal<G> {
+        let gr = G::generator().scalar_mul(&r_scalar);
+        let y_pow_r = key.pkey().scalar_mul(&r_scalar); // Use key.pkey()
+        let mhr = self.add_element(&y_pow_r);
+        ElGamal::<G>::new(gr, mhr)
+    }*/
 }
 
 impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G> {
@@ -190,8 +198,14 @@ where
         let encrypted = self.0.map(|element| element.encrypt(key));
 
         ElGamalN::new(encrypted)
-        
     }
+
+    /*fn encrypt_with_r(&self, key: &KeyPair<G>) -> ElGamalN<G, LenType> {
+        let encrypted = self.0.map(|element| element.encrypt(key));
+
+        ElGamalN::new(encrypted)
+
+    }*/
 }
 
 impl<G, LenType> Decryptable<G, ElementN<G, LenType>> for ElGamalN<G, LenType>
@@ -253,8 +267,7 @@ mod tests {
                 &mut rng::DefaultRng,
             ))
         });
-        let elements_3 =
-            Product(Array::<RistrettoElement, U3>::from(messages_array.clone()));
+        let elements_3 = Product(Array::<RistrettoElement, U3>::from(messages_array.clone()));
         let messages_n = ElementN::<Ristretto255Group, U3>::new(elements_3);
 
         let encrypted_n: ElGamalN<Ristretto255Group, U3> = messages_n.encrypt(&keypair);
@@ -266,10 +279,7 @@ mod tests {
         let decrypted_n: ElementN<Ristretto255Group, U3> = deserialized_en.decrypt(&keypair);
 
         for i in 0..U3::USIZE {
-            assert_eq!(
-                messages_array[i],
-                decrypted_n.0 .0.as_slice()[i]
-            );
+            assert_eq!(messages_array[i], decrypted_n.0 .0.as_slice()[i]);
         }
     }
 
@@ -282,9 +292,8 @@ mod tests {
                 &mut rng::DefaultRng,
             ))
         });
-        let elements_3 =
-            Product(Array::<RistrettoElement, U3>::from(messages_array.clone()));
-        
+        let elements_3 = Product(Array::<RistrettoElement, U3>::from(messages_array.clone()));
+
         // encrypt using product operations
 
         let messages = elements_3.map(|e| {
@@ -297,7 +306,7 @@ mod tests {
             Product::<RistrettoScalar, U2>::uniform(&r)
         });
         let rs = Product(rs);
-        
+
         let g = Ristretto255Group::generator();
         let gh = Product::<RistrettoElement, U2>(Array::from([g, keypair.pkey().clone()]));
         let ghs: Product<Product<RistrettoElement, U2>, U3> = Product::uniform(&gh);
@@ -309,14 +318,11 @@ mod tests {
         let egs = ElGamalN(egs);
 
         // decrypt normally
-        
+
         let decrypted_n: ElementN<Ristretto255Group, U3> = egs.decrypt(&keypair);
 
         for i in 0..U3::USIZE {
-            assert_eq!(
-                messages_array[i],
-                decrypted_n.0 .0.as_slice()[i]
-            );
+            assert_eq!(messages_array[i], decrypted_n.0 .0.as_slice()[i]);
         }
     }
 }

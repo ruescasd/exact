@@ -4,13 +4,16 @@ use crate::traits::scalar::GroupScalar;
 use hybrid_array::Array;
 use hybrid_array::ArraySize;
 
-pub trait GroupElement: Sized {
+use std::fmt::Debug;
+
+pub trait GroupElement: Sized + Debug {
     type Scalar: GroupScalar;
 
     fn identity() -> Self;
     fn add_element(&self, other: &Self) -> Self;
     fn negate_element(&self) -> Self;
     fn scalar_mul(&self, scalar: &Self::Scalar) -> Self;
+    fn eq(&self, other: &Self) -> bool;
 }
 
 type ElementN_<G, LenType> = Product<<G as CryptoGroup>::Element, LenType>;
@@ -18,7 +21,7 @@ type ElementN_<G, LenType> = Product<<G as CryptoGroup>::Element, LenType>;
 impl<E, LenType> GroupElement for Product<E, LenType>
 where
     E: GroupElement,
-    LenType: ArraySize,
+    LenType: ArraySize + Debug,
 {
     type Scalar = Product<E::Scalar, LenType>;
 
@@ -44,6 +47,33 @@ where
         let result: Array<E, LenType> = result.collect();
         Self(result)
     }
+
+    fn eq(&self, other: &Self) -> bool {
+        for (i, item) in self.0.iter().enumerate() {
+            let other: &E = &other.0[i];
+            if !item.eq(&other) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /*
+    fn eq<const N: usize>(&self, other: &Self) -> bool
+        where LenType: ArraySize<ArrayType<E> = [E; N]>  {
+
+        for (i, item) in self.0.iter().enumerate() {
+            // let other: &E = &other.0[i];
+            let other: &[E; N] = &other.0.0;
+            if ! item.eq(&other[i]) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+     */
 }
 
 type ElementNSize<G, LenType> = <Product<<G as CryptoGroup>::Element, LenType> as Size>::SizeType;

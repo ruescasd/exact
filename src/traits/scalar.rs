@@ -5,7 +5,7 @@ use hybrid_array::typenum::Prod;
 use hybrid_array::{Array, ArraySize};
 use rand::RngCore;
 
-pub trait GroupScalar: Sized {
+pub trait GroupScalar: Sized + std::fmt::Debug {
     fn zero() -> Self;
     fn one() -> Self;
     fn random<R: RngCore + rand::CryptoRng>(rng: &mut R) -> Self;
@@ -19,7 +19,7 @@ pub trait GroupScalar: Sized {
 impl<S, LenType> GroupScalar for Product<S, LenType>
 where
     S: GroupScalar,
-    LenType: ArraySize,
+    LenType: ArraySize + std::fmt::Debug,
 {
     fn zero() -> Self {
         let array = Array::from_fn(|_| S::zero());

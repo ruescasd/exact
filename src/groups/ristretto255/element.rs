@@ -38,6 +38,10 @@ impl GroupElement for RistrettoElement {
     fn scalar_mul(&self, scalar: &Self::Scalar) -> Self {
         RistrettoElement(self.0 * scalar.0)
     }
+
+    fn eq(&self, other: &Self) -> bool {
+        self == other
+    }
 }
 
 // Implement std::ops traits required by GroupElement supertraits

@@ -79,19 +79,24 @@ where
     // T: Clone,
     NLen: ArraySize,
 {
-    pub fn new<const N: usize>(array: [T; N]) -> Self 
-    where NLen: ArraySize<ArrayType<T> = [T; N]> 
+    pub fn new<const N: usize>(array: [T; N]) -> Self
+    where
+        NLen: ArraySize<ArrayType<T> = [T; N]>,
     {
         Self(Array::from(array))
     }
 
-    pub fn uniform(value: &T) -> Self where T: Clone {
+    pub fn uniform(value: &T) -> Self
+    where
+        T: Clone,
+    {
         let ret: Array<T, NLen> = Array::from_fn(|_| (*value).clone());
         Self(ret)
     }
 
     pub fn map<F, O>(&self, f: F) -> Product<O, NLen>
-    where F: Fn(&T) -> O
+    where
+        F: Fn(&T) -> O,
     {
         let ret = self.0.iter().map(|e| f(e));
         Product(ret.collect())
