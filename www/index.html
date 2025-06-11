@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WASM Benchmark</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
+        body { font-family: sans-serif; margin: 20px;}
         label { margin-right: 10px; }
         input { margin-bottom: 10px; padding: 5px; }
         button { padding: 8px 15px; }
-        #results { margin-top: 20px; font-weight: bold; }
+        #results { margin-top: 20px; font-weight: bold; white-space: pre;}
         #error { margin-top: 10px; color: red; }
     </style>
 </head>
@@ -66,7 +66,7 @@
                     const endTime = performance.now();
 
                     resultsDiv.textContent = `Benchmark completed for ${iterations} iterations.
-Average 'prove' execution time: ${averageTime.toFixed(4)} ms.
+Average encrypt + prove per bit: ${averageTime.toFixed(4)} ms.
 Total JavaScript execution time for benchmark_prove call: ${(endTime - startTime).toFixed(4)} ms.`;
 
                 } catch (e) {

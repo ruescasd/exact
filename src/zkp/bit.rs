@@ -6,7 +6,6 @@ use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
 use hybrid_array::typenum::{U2, U3, U4};
 use wasm_bindgen::prelude::*;
-use std::time::Instant;
 
 // type E2<G> = Product<<G as CryptoGroup>::Element, U2>;
 type Commitment<G> = Product<Product<<G as CryptoGroup>::Element, U2>, U3>;
@@ -227,6 +226,7 @@ pub fn benchmark_prove(iterations: u32) -> f64 {
     use crate::serialization_hybrid::Product; // For Product::uniform, Product::new
     use crate::traits::CryptoGroup; // For Ristretto255Group::generator
     use typenum; // For typenum::U2
+    use web_time::{Instant};
 
     let g = Ristretto255Group::generator();
     let keypair = KeyPair::<Ristretto255Group>::new();
@@ -242,6 +242,7 @@ pub fn benchmark_prove(iterations: u32) -> f64 {
         let b_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&b);
         let message = g.scalar_mul(&b);
 
+        let start_time = Instant::now();
         let r = RistrettoScalar::random(&mut rng::DefaultRng);
         let gr = g.scalar_mul(&r);
         let hr = keypair.pkey().scalar_mul(&r);
@@ -256,9 +257,10 @@ pub fn benchmark_prove(iterations: u32) -> f64 {
         let g_pow_s = big_g.scalar_mul(&s_2);
         let c_prime = c_pow_b.add_element(&g_pow_s);
 
-        let start_time = Instant::now();
+        
         let _proof = prove(&b, &r, &s, &c, &c_prime, keypair.pkey());
         let duration = start_time.elapsed();
+        assert!(verify(&_proof, &c, &c_prime, keypair.pkey()));
         total_duration += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
     }
 

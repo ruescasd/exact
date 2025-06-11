@@ -10,9 +10,10 @@ Set-Location $ProjectRoot
 
 Write-Host "Starting WebAssembly build..."
 
-try {
+try {    
     # Build the project using wasm-pack
-    wasm-pack build --target web --out-dir www/pkg
+    # cmd /c 'set WASM_OPT_ARGS=--enable-reference-types && wasm-pack build --target web --out-dir www/pkg --release'
+    wasm-pack build --target web --out-dir www/pkg --release
     Write-Host "Build successful. Outputting to www/pkg"
     Write-Host "Contents of www/pkg:"
     Get-ChildItem -Path www/pkg | ForEach-Object { Write-Host $_.Name }
@@ -22,15 +23,16 @@ catch {
     exit 1
 }
 
-Write-Host "Launching index.html in the default web browser..."
-try {
-    Start-Process "www/index.html"
-    Write-Host "Successfully launched index.html."
-}
-catch {
-    Write-Error "Failed to launch index.html: $($_.Exception.Message)"
-    Write-Host "Please open www/index.html in your browser manually."
-    exit 1
-}
+
+# Write-Host "Launching index.html in the default web browser..."
+# try {
+#    Start-Process "www/index.html"
+#    Write-Host "Successfully launched index.html."
+#}
+#catch {
+#    Write-Error "Failed to launch index.html: $($_.Exception.Message)"
+#    Write-Host "Please open www/index.html in your browser manually."
+#    exit 1
+#}
 
 Write-Host "Script finished."
