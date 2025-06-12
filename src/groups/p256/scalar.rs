@@ -67,59 +67,6 @@ impl GroupScalar for P256Scalar {
     }
 }
 
-// Implement std::ops traits
-impl std::ops::Add for P256Scalar {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        P256Scalar(self.0 + rhs.0)
-    }
-}
-impl<'a, 'b> std::ops::Add<&'b P256Scalar> for &'a P256Scalar {
-    type Output = P256Scalar;
-    fn add(self, rhs: &'b P256Scalar) -> Self::Output {
-        P256Scalar(self.0 + rhs.0)
-    }
-}
-
-impl std::ops::Sub for P256Scalar {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        P256Scalar(self.0 - rhs.0)
-    }
-}
-impl<'a, 'b> std::ops::Sub<&'b P256Scalar> for &'a P256Scalar {
-    type Output = P256Scalar;
-    fn sub(self, rhs: &'b P256Scalar) -> Self::Output {
-        P256Scalar(self.0 - rhs.0)
-    }
-}
-
-impl std::ops::Mul for P256Scalar {
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
-        P256Scalar(self.0 * rhs.0)
-    }
-}
-impl<'a, 'b> std::ops::Mul<&'b P256Scalar> for &'a P256Scalar {
-    type Output = P256Scalar;
-    fn mul(self, rhs: &'b P256Scalar) -> Self::Output {
-        P256Scalar(self.0 * rhs.0)
-    }
-}
-
-impl std::ops::Neg for P256Scalar {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        P256Scalar(self.0.neg())
-    }
-}
-impl<'a> std::ops::Neg for &'a P256Scalar {
-    type Output = P256Scalar;
-    fn neg(self) -> Self::Output {
-        P256Scalar(self.0.neg())
-    }
-}
-
 // Implement Display and Debug traits
 impl Display for P256Scalar {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

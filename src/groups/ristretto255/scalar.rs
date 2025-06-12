@@ -66,60 +66,6 @@ impl GroupScalar for RistrettoScalar {
     }
 }
 
-// Implement std::ops traits required by GroupScalar supertraits
-impl std::ops::Add for RistrettoScalar {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        RistrettoScalar(self.0 + rhs.0)
-    }
-}
-impl<'a, 'b> std::ops::Add<&'b RistrettoScalar> for &'a RistrettoScalar {
-    type Output = RistrettoScalar;
-    fn add(self, rhs: &'b RistrettoScalar) -> Self::Output {
-        RistrettoScalar(self.0 + rhs.0)
-    }
-}
-
-impl std::ops::Sub for RistrettoScalar {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        RistrettoScalar(self.0 - rhs.0)
-    }
-}
-impl<'a, 'b> std::ops::Sub<&'b RistrettoScalar> for &'a RistrettoScalar {
-    type Output = RistrettoScalar;
-    fn sub(self, rhs: &'b RistrettoScalar) -> Self::Output {
-        RistrettoScalar(self.0 - rhs.0)
-    }
-}
-
-impl std::ops::Mul for RistrettoScalar {
-    // Note: GroupScalar uses CoreOpsMul which is std::ops::Mul
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
-        RistrettoScalar(self.0 * rhs.0)
-    }
-}
-impl<'a, 'b> std::ops::Mul<&'b RistrettoScalar> for &'a RistrettoScalar {
-    type Output = RistrettoScalar;
-    fn mul(self, rhs: &'b RistrettoScalar) -> Self::Output {
-        RistrettoScalar(self.0 * rhs.0)
-    }
-}
-
-impl std::ops::Neg for RistrettoScalar {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        RistrettoScalar(-self.0)
-    }
-}
-impl<'a> std::ops::Neg for &'a RistrettoScalar {
-    type Output = RistrettoScalar;
-    fn neg(self) -> Self::Output {
-        RistrettoScalar(-self.0)
-    }
-}
-
 impl Size for RistrettoScalar {
     type SizeType = U32;
 }

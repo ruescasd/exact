@@ -6,6 +6,9 @@ use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
 use hybrid_array::typenum::{U2, U3, U4};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
+use js_sys::Array;
+use crate::groups::p256::{P256Group, P256Element, P256Scalar};
 
 // type E2<G> = Product<<G as CryptoGroup>::Element, U2>;
 type Commitment<G> = Product<Product<<G as CryptoGroup>::Element, U2>, U3>;
@@ -216,7 +219,7 @@ where
 }
 
 #[wasm_bindgen]
-pub fn benchmark_prove(iterations: u32) -> f64 {
+pub fn benchmark_prove(iterations: u32) -> Array {
     use crate::elgamal::{ElGamal, KeyPair};
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
     use crate::traits::scalar::GroupScalar;
@@ -224,13 +227,21 @@ pub fn benchmark_prove(iterations: u32) -> f64 {
     use crate::utils::rng;
     use rand::Rng; // For rng::DefaultRng.gen_bool
     use crate::serialization_hybrid::Product; // For Product::uniform, Product::new
-    use crate::traits::CryptoGroup; // For Ristretto255Group::generator
+    use crate::traits::CryptoGroup; // For Ristretto255Group::generator and P256Group::generator
     use typenum; // For typenum::U2
     use web_time::{Instant};
 
-    let g = Ristretto255Group::generator();
-    let keypair = KeyPair::<Ristretto255Group>::new();
-    let mut total_duration = 0.0;
+    if iterations == 0 {
+        let results = Array::new();
+        results.push(&JsValue::from_f64(0.0));
+        results.push(&JsValue::from_f64(0.0));
+        return results;
+    }
+
+    // Ristretto Benchmark
+    let g_ristretto = Ristretto255Group::generator();
+    let keypair_ristretto = KeyPair::<Ristretto255Group>::new();
+    let mut total_duration_ristretto = 0.0;
 
     for _ in 0..iterations {
         let b = if rng::DefaultRng.gen_bool(0.5) {
@@ -240,35 +251,73 @@ pub fn benchmark_prove(iterations: u32) -> f64 {
         };
 
         let b_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&b);
-        let message = g.scalar_mul(&b);
+        let message = g_ristretto.scalar_mul(&b);
 
         let start_time = Instant::now();
         let r = RistrettoScalar::random(&mut rng::DefaultRng);
-        let gr = g.scalar_mul(&r);
-        let hr = keypair.pkey().scalar_mul(&r);
+        let gr = g_ristretto.scalar_mul(&r);
+        let hr = keypair_ristretto.pkey().scalar_mul(&r);
         let mhr = hr.add_element(&message);
         let c = ElGamal::<Ristretto255Group>::new(gr, mhr);
 
-        let big_g =
-            Product::<RistrettoElement, typenum::U2>::new([g.clone(), keypair.pkey().clone()]);
+        let big_g = Product::<RistrettoElement, typenum::U2>::new([
+            g_ristretto.clone(),
+            keypair_ristretto.pkey().clone(),
+        ]);
         let s = RistrettoScalar::random(&mut rng::DefaultRng);
         let s_2: Product<RistrettoScalar, typenum::U2> = Product::uniform(&s);
         let c_pow_b = c.0.scalar_mul(&b_2);
         let g_pow_s = big_g.scalar_mul(&s_2);
         let c_prime = c_pow_b.add_element(&g_pow_s);
 
-        
-        let _proof = prove(&b, &r, &s, &c, &c_prime, keypair.pkey());
+        let proof = prove(&b, &r, &s, &c, &c_prime, keypair_ristretto.pkey());
         let duration = start_time.elapsed();
-        assert!(verify(&_proof, &c, &c_prime, keypair.pkey()));
-        total_duration += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
+        assert!(verify(&proof, &c, &c_prime, keypair_ristretto.pkey()));
+        total_duration_ristretto += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
     }
+    let avg_ristretto_time = total_duration_ristretto / iterations as f64;
 
-    if iterations == 0 {
-        0.0
-    } else {
-        total_duration / iterations as f64
+    // P256 Benchmark
+    let g_p256 = P256Group::generator();
+    let keypair_p256 = KeyPair::<P256Group>::new();
+    let mut total_duration_p256 = 0.0;
+
+    for _ in 0..iterations {
+        let b = if rng::DefaultRng.gen_bool(0.5) {
+            P256Scalar::one()
+        } else {
+            P256Scalar::zero()
+        };
+
+        let b_2: Product<P256Scalar, typenum::U2> = Product::uniform(&b);
+        let message = g_p256.scalar_mul(&b);
+
+        let start_time = Instant::now();
+        let r = P256Scalar::random(&mut rng::DefaultRng);
+        let gr = g_p256.scalar_mul(&r);
+        let hr = keypair_p256.pkey().scalar_mul(&r);
+        let mhr = hr.add_element(&message);
+        let c = ElGamal::<P256Group>::new(gr, mhr);
+
+        let big_g =
+            Product::<P256Element, typenum::U2>::new([g_p256.clone(), keypair_p256.pkey().clone()]);
+        let s = P256Scalar::random(&mut rng::DefaultRng);
+        let s_2: Product<P256Scalar, typenum::U2> = Product::uniform(&s);
+        let c_pow_b = c.0.scalar_mul(&b_2);
+        let g_pow_s = big_g.scalar_mul(&s_2);
+        let c_prime = c_pow_b.add_element(&g_pow_s);
+        
+        let proof = prove(&b, &r, &s, &c, &c_prime, keypair_p256.pkey());
+        let duration = start_time.elapsed();
+        assert!(verify(&proof, &c, &c_prime, keypair_p256.pkey()));
+        total_duration_p256 += duration.as_secs_f64() * 1000.0; // Convert to milliseconds
     }
+    let avg_p256_time = total_duration_p256 / iterations as f64;
+
+    let results = Array::new();
+    results.push(&JsValue::from_f64(avg_ristretto_time));
+    results.push(&JsValue::from_f64(avg_p256_time));
+    results
 }
 
 #[cfg(test)]

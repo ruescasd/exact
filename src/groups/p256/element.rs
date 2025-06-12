@@ -41,49 +41,6 @@ impl GroupElement for P256Element {
     }
 }
 
-// Implement std::ops traits
-impl std::ops::Add for P256Element {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        P256Element(self.0 + rhs.0)
-    }
-}
-
-impl<'a, 'b> std::ops::Add<&'b P256Element> for &'a P256Element {
-    type Output = P256Element;
-    fn add(self, rhs: &'b P256Element) -> Self::Output {
-        P256Element(self.0 + rhs.0)
-    }
-}
-
-impl std::ops::Sub for P256Element {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        P256Element(self.0 - rhs.0)
-    }
-}
-
-impl<'a, 'b> std::ops::Sub<&'b P256Element> for &'a P256Element {
-    type Output = P256Element;
-    fn sub(self, rhs: &'b P256Element) -> Self::Output {
-        P256Element(self.0 - rhs.0)
-    }
-}
-
-impl std::ops::Neg for P256Element {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        P256Element(-self.0)
-    }
-}
-
-impl<'a> std::ops::Neg for &'a P256Element {
-    type Output = P256Element;
-    fn neg(self) -> Self::Output {
-        P256Element(-self.0)
-    }
-}
-
 // Implement Display and Debug traits
 impl Display for P256Element {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

@@ -62,11 +62,15 @@
                     }
 
                     const startTime = performance.now();
-                    const averageTime = benchmark_prove(iterations);
+                    const resultsArray = benchmark_prove(iterations);
                     const endTime = performance.now();
 
+                    const averageTimeRistretto = resultsArray.at(0);
+                    const averageTimeP256 = resultsArray.at(1);
+
                     resultsDiv.textContent = `Benchmark completed for ${iterations} iterations.
-Average encrypt + prove per bit: ${averageTime.toFixed(4)} ms.
+Average Ristretto encrypt + prove per bit: ${averageTimeRistretto.toFixed(4)} ms.
+Average P256 encrypt + prove per bit: ${averageTimeP256.toFixed(4)} ms.
 Total JavaScript execution time for benchmark_prove call: ${(endTime - startTime).toFixed(4)} ms.`;
 
                 } catch (e) {

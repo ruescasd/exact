@@ -165,6 +165,7 @@ dependencies = [
  "curve25519-dalek",
  "getrandom",
  "hybrid-array",
+ "js-sys",
  "p256",
  "rand",
  "sha3",

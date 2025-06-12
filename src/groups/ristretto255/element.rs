@@ -44,49 +44,6 @@ impl GroupElement for RistrettoElement {
     }
 }
 
-// Implement std::ops traits required by GroupElement supertraits
-impl std::ops::Add for RistrettoElement {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        RistrettoElement(self.0 + rhs.0)
-    }
-}
-
-impl<'a, 'b> std::ops::Add<&'b RistrettoElement> for &'a RistrettoElement {
-    type Output = RistrettoElement;
-    fn add(self, rhs: &'b RistrettoElement) -> Self::Output {
-        RistrettoElement(self.0 + rhs.0)
-    }
-}
-
-impl std::ops::Sub for RistrettoElement {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        RistrettoElement(self.0 - rhs.0)
-    }
-}
-
-impl<'a, 'b> std::ops::Sub<&'b RistrettoElement> for &'a RistrettoElement {
-    type Output = RistrettoElement;
-    fn sub(self, rhs: &'b RistrettoElement) -> Self::Output {
-        RistrettoElement(self.0 - rhs.0)
-    }
-}
-
-impl std::ops::Neg for RistrettoElement {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        RistrettoElement(-self.0)
-    }
-}
-
-impl<'a> std::ops::Neg for &'a RistrettoElement {
-    type Output = RistrettoElement;
-    fn neg(self) -> Self::Output {
-        RistrettoElement(-self.0)
-    }
-}
-
 impl Size for RistrettoElement {
     type SizeType = U32;
 }
