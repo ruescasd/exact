@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 use crate::elgamal::ElGamal;
 use crate::serialization_hybrid::{FSerializable, Pair, Product, Size};
 use crate::traits::element::GroupElement;
@@ -7,16 +8,20 @@ use crate::utils::rng;
 use hybrid_array::typenum::{U2, U3, U4};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
-use js_sys::Array;
+use js_sys::Array as JsArray;
 use crate::groups::p256::{P256Group, P256Element, P256Scalar};
+use hybrid_array::Array;
 
-// type E2<G> = Product<<G as CryptoGroup>::Element, U2>;
 type Commitment<G> = Product<Product<<G as CryptoGroup>::Element, U2>, U3>;
 type Response<G> = Product<<G as CryptoGroup>::Scalar, U4>;
-// type BitProof_<G> = Pair<Product<E2<G>, U3>, <G as CryptoGroup>::Scalar>;
 type BitProof_<G> = Pair<Commitment<G>, Response<G>>;
-
 pub struct BitProof<G: CryptoGroup>(BitProof_<G>);
+
+type BitProofSize<G> = <BitProof_<G> as Size>::SizeType;
+impl<G: CryptoGroup> Size for BitProof<G> 
+where BitProof_<G>: Size {
+    type SizeType = BitProofSize<G>;
+}
 
 impl<G: CryptoGroup> BitProof<G> {
     pub fn new(c: Commitment<G>, response: Response<G>) -> Self {
@@ -29,6 +34,24 @@ impl<G: CryptoGroup> BitProof<G> {
 
     pub fn response(&self) -> &Response<G> {
         &self.0 .1
+    }
+}
+
+impl<G: CryptoGroup> FSerializable<BitProofSize<G>> for BitProof<G>
+where
+    BitProof_<G>: Size,
+    BitProof_<G>: FSerializable<BitProofSize<G>>,
+{
+    fn serialize(&self) -> Array<u8, BitProofSize<G>> {
+        self.0.serialize()
+    }
+
+    fn deserialize(
+        bytes: Array<u8, BitProofSize<G>>,
+    ) -> Result<Self, crate::serialization_hybrid::Error> {
+        let pair = BitProof_::<G>::deserialize(bytes);
+
+        Ok(BitProof(pair?))
     }
 }
 
@@ -76,9 +99,6 @@ pub fn prove<G: CryptoGroup>(
 where
     G::Scalar: Clone,
     G::Element: Size + Clone,
-    G::Element: FSerializable<<G::Element as Size>::SizeType>,
-    ElGamal<G>: Size,
-    ElGamal<G>: FSerializable<<ElGamal<G> as Size>::SizeType>,
     Product<G::Element, U2>: Size,
     Product<G::Element, U2>: FSerializable<<Product<G::Element, U2> as Size>::SizeType>,
     Product<Product<G::Element, U2>, U3>: Size,
@@ -219,7 +239,7 @@ where
 }
 
 #[wasm_bindgen]
-pub fn benchmark_prove(iterations: u32) -> Array {
+pub fn benchmark_prove(iterations: u32) -> JsArray {
     use crate::elgamal::{ElGamal, KeyPair};
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
     use crate::traits::scalar::GroupScalar;
@@ -232,7 +252,7 @@ pub fn benchmark_prove(iterations: u32) -> Array {
     use web_time::{Instant};
 
     if iterations == 0 {
-        let results = Array::new();
+        let results = JsArray::new();
         results.push(&JsValue::from_f64(0.0));
         results.push(&JsValue::from_f64(0.0));
         return results;
@@ -314,7 +334,7 @@ pub fn benchmark_prove(iterations: u32) -> Array {
     }
     let avg_p256_time = total_duration_p256 / iterations as f64;
 
-    let results = Array::new();
+    let results = JsArray::new();
     results.push(&JsValue::from_f64(avg_ristretto_time));
     results.push(&JsValue::from_f64(avg_p256_time));
     results
@@ -363,6 +383,9 @@ mod tests {
             let c_prime = c_pow_b.add_element(&g_pow_s);
 
             let proof = prove(&b, &r, &s, &c, &c_prime, keypair.pkey());
+            let proof_bytes: [u8; 320] = proof.serialize().0;
+            let proof = BitProof::<Ristretto255Group>::deserialize(proof_bytes.into()).unwrap();
+            
             let ok = verify(&proof, &c, &c_prime, keypair.pkey());
 
             assert!(ok);
