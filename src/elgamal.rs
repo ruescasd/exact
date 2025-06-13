@@ -22,7 +22,7 @@ pub trait Decryptable<G: CryptoGroup, P> {
 
 type KeyPair_<G> = Pair<ScalarT<G>, ElementT<G>>;
 #[derive(Debug, FSerializable)]
-pub struct KeyPair<G: CryptoGroup>(pub KeyPair_<G>);
+pub struct KeyPair<G: CryptoGroup>(pub KeyPair_::<G>);
 
 impl<G: CryptoGroup> KeyPair<G> {
     pub fn new() -> Self {
@@ -71,7 +71,7 @@ type ElGamalSize<G> = <ElGamal_<G> as Size>::SizeType;
 #[derive(Debug, FSerializable)]
 // For some reason this does not work, even though it should be identical to the below
 // pub struct ElGamal<G: CryptoGroup>(pub ElGamal_<G>);
-pub struct ElGamal<G: CryptoGroup>(pub ElGamal_<G>);
+pub struct ElGamal<G: CryptoGroup>(pub ElGamal_::<G>);
 
 impl<G: CryptoGroup> ElGamal<G> {
     pub fn new(gr: G::Element, mhr: G::Element) -> Self {

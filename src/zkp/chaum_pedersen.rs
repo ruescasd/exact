@@ -10,7 +10,7 @@ use hybrid_array::Array;
 
 type CPProof_<G> = Pair<Product<ElementT<G>, U2>, ScalarT<G>>;
 #[derive(Debug, FSerializable)]
-pub struct CPProof<G: CryptoGroup>(CPProof_<G>);
+pub struct CPProof<G: CryptoGroup>(CPProof_::<G>);
 
 impl<G: CryptoGroup> CPProof<G> {
     pub fn new(c1: G::Element, c2: G::Element, response: G::Scalar) -> Self {

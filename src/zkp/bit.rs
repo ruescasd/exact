@@ -17,7 +17,7 @@ type Response<G> = Product<<G as CryptoGroup>::Scalar, U4>;
 type BitProof_<G> = Pair<Commitment<G>, Response<G>>;
 
 #[derive(FSerializable)]
-pub struct BitProof<G: CryptoGroup>(BitProof_<G>);
+pub struct BitProof<G: CryptoGroup>(BitProof_::<G>);
 
 impl<G: CryptoGroup> BitProof<G> {
     pub fn new(c: Commitment<G>, response: Response<G>) -> Self {

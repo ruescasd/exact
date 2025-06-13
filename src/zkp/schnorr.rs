@@ -9,7 +9,7 @@ use crate::utils::rng;
 
 type Schnorr_<G> = Pair<ElementT<G>, ScalarT<G>>;
 #[derive(Debug, FSerializable)]
-pub struct Proof<G: CryptoGroup>(Schnorr_<G>);
+pub struct Proof<G: CryptoGroup>(Schnorr_::<G>);
 
 impl<G: CryptoGroup> Proof<G> {
     pub fn new(t: G::Element, s: G::Scalar) -> Self {
