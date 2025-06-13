@@ -9,3 +9,6 @@ pub mod groups;
 pub mod zkp;
 
 pub use zkp::bit::benchmark_prove;
+
+
+mod macro_test;

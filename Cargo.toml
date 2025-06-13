@@ -16,6 +16,7 @@ wasm-bindgen = "0.2"
 web-time = "1.1.0"
 js-sys = "0.3"
 
+exact_derive = { path = "./exact_derive" }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

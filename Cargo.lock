@@ -163,6 +163,7 @@ version = "0.1.0"
 dependencies = [
  "base64ct",
  "curve25519-dalek",
+ "exact_derive",
  "getrandom",
  "hybrid-array",
  "js-sys",
@@ -172,6 +173,14 @@ dependencies = [
  "typenum",
  "wasm-bindgen",
  "web-time",
+]
+
+[[package]]
+name = "exact_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
