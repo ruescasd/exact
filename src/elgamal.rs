@@ -8,7 +8,6 @@ use core::ops::Mul as CoreMul;
 use exact_derive::FSerializable;
 use hybrid_array::typenum::{Prod, U2};
 use hybrid_array::{Array, ArraySize};
-use typenum::Len;
 
 pub trait Encryptable<G: CryptoGroup, C> {
     fn encrypt(&self, key: &KeyPair<G>) -> C;
@@ -41,36 +40,10 @@ impl<G: CryptoGroup> KeyPair<G> {
     }
 }
 
-/*type KeyPairSize<G> =
-    <Pair<<G as CryptoGroup>::Scalar, <G as CryptoGroup>::Element> as Size>::SizeType;
-impl<G: CryptoGroup> Size for KeyPair<G>
-where
-    Pair<G::Scalar, G::Element>: Size,
-{
-    type SizeType = KeyPairSize<G>;
-}
-
-impl<G: CryptoGroup> FSerializable<KeyPairSize<G>> for KeyPair<G>
-where
-    Pair<G::Scalar, G::Element>: Size,
-    Pair<G::Scalar, G::Element>: FSerializable<KeyPairSize<G>>,
-{
-    fn serialize(&self) -> Array<u8, KeyPairSize<G>> {
-        self.0.serialize()
-    }
-
-    fn deserialize(buffer: Array<u8, KeyPairSize<G>>) -> Result<Self, SerHyError> {
-        let product = Pair::<G::Scalar, G::Element>::deserialize(buffer)?;
-        Ok(KeyPair(product))
-    }
-}*/
-
-type ElGamal_<G> = Product<<G as CryptoGroup>::Element, U2>;
+type ElGamal_<G> = Product<ElementT<G>, U2>;
 type ElGamalSize<G> = <ElGamal_<G> as Size>::SizeType;
 
 #[derive(Debug, FSerializable)]
-// For some reason this does not work, even though it should be identical to the below
-// pub struct ElGamal<G: CryptoGroup>(pub ElGamal_<G>);
 pub struct ElGamal<G: CryptoGroup>(pub ElGamal_::<G>);
 
 impl<G: CryptoGroup> ElGamal<G> {
@@ -86,28 +59,6 @@ impl<G: CryptoGroup> ElGamal<G> {
         &(self.0).0[1]
     }
 }
-/*
-impl<G: CryptoGroup> Size for ElGamal<G>
-where
-    Product<G::Element, U2>: Size,
-{
-    type SizeType = ElGamalSize<G>;
-}
-
-impl<G: CryptoGroup> FSerializable<ElGamalSize<G>> for ElGamal<G>
-where
-    Product<G::Element, U2>: Size,
-    Product<G::Element, U2>: FSerializable<ElGamalSize<G>>,
-{
-    fn serialize(&self) -> Array<u8, ElGamalSize<G>> {
-        self.0.serialize()
-    }
-
-    fn deserialize(buffer: Array<u8, ElGamalSize<G>>) -> Result<Self, SerHyError> {
-        let product = Product::<G::Element, U2>::deserialize(buffer)?;
-        Ok(ElGamal(product))
-    }
-}*/
 
 // --- Encryptable/Decryptable Trait Implementations ---
 
