@@ -2,12 +2,15 @@ use crate::serialization_hybrid::{FSerializable, Pair, Product, Size};
 use crate::traits::element::GroupElement;
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
+use crate::traits::{ElementT, ScalarT};
 use crate::utils::rng;
+use exact_derive::FSerializable;
 use hybrid_array::typenum::U2;
 use hybrid_array::Array;
 
-#[derive(Debug)]
-pub struct CPProof<G: CryptoGroup>(Pair<Product<G::Element, U2>, G::Scalar>);
+type CPProof_<G> = Pair<Product<ElementT<G>, U2>, ScalarT<G>>;
+#[derive(Debug, FSerializable)]
+pub struct CPProof<G: CryptoGroup>(CPProof_<G>);
 
 impl<G: CryptoGroup> CPProof<G> {
     pub fn new(c1: G::Element, c2: G::Element, response: G::Scalar) -> Self {
@@ -93,35 +96,6 @@ where
     let t2_y2_c = commitments[1].add_element(&y2_c);
     let check2 = g2_s == t2_y2_c;
     check1 && check2
-}
-
-type CommitmentProduct<G> = Product<<G as CryptoGroup>::Element, U2>;
-type CPProof_<G> = Pair<CommitmentProduct<G>, <G as CryptoGroup>::Scalar>;
-type CPProofSize<G> = <CPProof_<G> as Size>::SizeType;
-
-impl<G: CryptoGroup> Size for CPProof<G>
-where
-    CPProof_<G>: Size,
-{
-    type SizeType = CPProofSize<G>;
-}
-
-impl<G: CryptoGroup> FSerializable<CPProofSize<G>> for CPProof<G>
-where
-    CPProof_<G>: Size,
-    CPProof_<G>: FSerializable<CPProofSize<G>>,
-{
-    fn serialize(&self) -> Array<u8, CPProofSize<G>> {
-        self.0.serialize()
-    }
-
-    fn deserialize(
-        bytes: Array<u8, CPProofSize<G>>,
-    ) -> Result<Self, crate::serialization_hybrid::Error> {
-        let pair = CPProof_::<G>::deserialize(bytes);
-
-        Ok(CPProof(pair?))
-    }
 }
 
 #[cfg(test)]

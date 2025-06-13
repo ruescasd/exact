@@ -1,27 +1,23 @@
 #![allow(unused_variables)]
 use crate::elgamal::ElGamal;
+use crate::groups::p256::{P256Element, P256Group, P256Scalar};
 use crate::serialization_hybrid::{FSerializable, Pair, Product, Size};
 use crate::traits::element::GroupElement;
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
 use crate::utils::rng;
+use exact_derive::FSerializable;
 use hybrid_array::typenum::{U2, U3, U4};
+use js_sys::Array as JsArray;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
-use js_sys::Array as JsArray;
-use crate::groups::p256::{P256Group, P256Element, P256Scalar};
-use hybrid_array::Array;
 
 type Commitment<G> = Product<Product<<G as CryptoGroup>::Element, U2>, U3>;
 type Response<G> = Product<<G as CryptoGroup>::Scalar, U4>;
 type BitProof_<G> = Pair<Commitment<G>, Response<G>>;
-pub struct BitProof<G: CryptoGroup>(BitProof_<G>);
 
-type BitProofSize<G> = <BitProof_<G> as Size>::SizeType;
-impl<G: CryptoGroup> Size for BitProof<G> 
-where BitProof_<G>: Size {
-    type SizeType = BitProofSize<G>;
-}
+#[derive(FSerializable)]
+pub struct BitProof<G: CryptoGroup>(BitProof_<G>);
 
 impl<G: CryptoGroup> BitProof<G> {
     pub fn new(c: Commitment<G>, response: Response<G>) -> Self {
@@ -34,24 +30,6 @@ impl<G: CryptoGroup> BitProof<G> {
 
     pub fn response(&self) -> &Response<G> {
         &self.0 .1
-    }
-}
-
-impl<G: CryptoGroup> FSerializable<BitProofSize<G>> for BitProof<G>
-where
-    BitProof_<G>: Size,
-    BitProof_<G>: FSerializable<BitProofSize<G>>,
-{
-    fn serialize(&self) -> Array<u8, BitProofSize<G>> {
-        self.0.serialize()
-    }
-
-    fn deserialize(
-        bytes: Array<u8, BitProofSize<G>>,
-    ) -> Result<Self, crate::serialization_hybrid::Error> {
-        let pair = BitProof_::<G>::deserialize(bytes);
-
-        Ok(BitProof(pair?))
     }
 }
 
@@ -242,14 +220,14 @@ where
 pub fn benchmark_prove(iterations: u32) -> JsArray {
     use crate::elgamal::{ElGamal, KeyPair};
     use crate::groups::ristretto255::{Ristretto255Group, RistrettoElement, RistrettoScalar};
+    use crate::serialization_hybrid::Product; // For Product::uniform, Product::new
     use crate::traits::scalar::GroupScalar;
+    use crate::traits::CryptoGroup; // For Ristretto255Group::generator and P256Group::generator
     use crate::traits::GroupElement;
     use crate::utils::rng;
     use rand::Rng; // For rng::DefaultRng.gen_bool
-    use crate::serialization_hybrid::Product; // For Product::uniform, Product::new
-    use crate::traits::CryptoGroup; // For Ristretto255Group::generator and P256Group::generator
     use typenum; // For typenum::U2
-    use web_time::{Instant};
+    use web_time::Instant;
 
     if iterations == 0 {
         let results = JsArray::new();
@@ -326,7 +304,7 @@ pub fn benchmark_prove(iterations: u32) -> JsArray {
         let c_pow_b = c.0.scalar_mul(&b_2);
         let g_pow_s = big_g.scalar_mul(&s_2);
         let c_prime = c_pow_b.add_element(&g_pow_s);
-        
+
         let proof = prove(&b, &r, &s, &c, &c_prime, keypair_p256.pkey());
         let duration = start_time.elapsed();
         assert!(verify(&proof, &c, &c_prime, keypair_p256.pkey()));
@@ -374,8 +352,7 @@ mod tests {
             let mhr = hr.add_element(&message);
             let c = ElGamal::<Ristretto255Group>::new(gr, mhr);
 
-            let big_g =
-                Product::<RistrettoElement, U2>::new([g.clone(), keypair.pkey().clone()]);
+            let big_g = Product::<RistrettoElement, U2>::new([g.clone(), keypair.pkey().clone()]);
             let s = RistrettoScalar::random(&mut rng::DefaultRng);
             let s_2: Product<RistrettoScalar, U2> = Product::uniform(&s);
             let c_pow_b = c.0.scalar_mul(&b_2);
@@ -385,7 +362,7 @@ mod tests {
             let proof = prove(&b, &r, &s, &c, &c_prime, keypair.pkey());
             let proof_bytes: [u8; 320] = proof.serialize().0;
             let proof = BitProof::<Ristretto255Group>::deserialize(proof_bytes.into()).unwrap();
-            
+
             let ok = verify(&proof, &c, &c_prime, keypair.pkey());
 
             assert!(ok);
@@ -413,8 +390,7 @@ mod tests {
             let mhr = hr.add_element(&message);
             let c = ElGamal::<P256Group>::new(gr, mhr);
 
-            let big_g =
-                Product::<P256Element, U2>::new([g.clone(), keypair.pkey().clone()]);
+            let big_g = Product::<P256Element, U2>::new([g.clone(), keypair.pkey().clone()]);
             let s = P256Scalar::random(&mut rng::DefaultRng);
             let s_2: Product<P256Scalar, U2> = Product::uniform(&s);
             let c_pow_b = c.0.scalar_mul(&b_2);

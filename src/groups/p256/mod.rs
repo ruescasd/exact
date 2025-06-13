@@ -8,9 +8,9 @@ use sha3::digest::generic_array::GenericArray;
 use crate::traits::group::CryptoGroup;
 use crate::utils;
 
-use p256::{ProjectivePoint, Scalar as P256ScalarInternal, FieldBytes};
 use p256::elliptic_curve::Field; // For P256ScalarInternal::random
 use p256::elliptic_curve::ScalarPrimitive; // For converting bytes to scalar
+use p256::{FieldBytes, ProjectivePoint, Scalar as P256ScalarInternal};
 use sha3::Digest;
 use typenum::U32;
 // use sha2::{Sha256, Digest}; // Using SHA-256 for hashing to scalar, as an example. P256 often uses SHA-256.
@@ -41,17 +41,18 @@ impl CryptoGroup for P256Group {
         // Convert the hash output (FieldBytes) to P256ScalarInternal (p256::Scalar)
         // Convert the hash output (GenericArray from Sha256) to FieldBytes, then to ScalarPrimitive, then to Scalar
         let field_bytes = FieldBytes::from_slice(result.as_slice()); // result is GenericArray<u8, U32>
-        // ScalarPrimitive::from_bytes returns CtOption, so unwrap (or handle error)
-        // .into() converts ScalarPrimitive to Scalar (P256ScalarInternal)
-        // This approach ensures the bytes are interpreted correctly as a scalar.
+                                                                     // ScalarPrimitive::from_bytes returns CtOption, so unwrap (or handle error)
+                                                                     // .into() converts ScalarPrimitive to Scalar (P256ScalarInternal)
+                                                                     // This approach ensures the bytes are interpreted correctly as a scalar.
         let ct_scalar_primitive = ScalarPrimitive::from_bytes(field_bytes);
-        let option_scalar_primitive: Option<ScalarPrimitive<p256::NistP256>> = ct_scalar_primitive.into(); // Convert CtOption to Option
-        
+        let option_scalar_primitive: Option<ScalarPrimitive<p256::NistP256>> =
+            ct_scalar_primitive.into(); // Convert CtOption to Option
+
         let scalar_primitive = option_scalar_primitive
             .ok_or("Failed to convert hash to scalar primitive (CtOption was None)") // Or handle more gracefully
             .unwrap(); // Panics on error
         let scalar_internal: P256ScalarInternal = scalar_primitive.into();
-        
+
         P256Scalar::new(scalar_internal)
     }
 

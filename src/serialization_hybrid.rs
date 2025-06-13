@@ -31,15 +31,19 @@ pub trait Size {
 pub trait FSerializable<S: ArraySize>: Sized {
     fn serialize(&self) -> Array<u8, S>;
     fn deserialize(buffer: Array<u8, S>) -> Result<Self, Error>;
-    
+
     fn serialize_bytes<const N: usize>(&self) -> [u8; N]
-    where S: ArraySize<ArrayType<u8> = [u8; N]> {
+    where
+        S: ArraySize<ArrayType<u8> = [u8; N]>,
+    {
         let bytes: [u8; N] = self.serialize().0;
 
         bytes
     }
     fn deserialize_bytes<const N: usize>(buffer: [u8; N]) -> Result<Self, Error>
-    where S: ArraySize<ArrayType<u8> = [u8; N]> {
+    where
+        S: ArraySize<ArrayType<u8> = [u8; N]>,
+    {
         let bytes: Result<Self, Error> = Self::deserialize(buffer.into());
 
         bytes

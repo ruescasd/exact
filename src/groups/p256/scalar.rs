@@ -2,13 +2,13 @@ use crate::serialization_hybrid::{Error as SerError, FSerializable, Size};
 use crate::traits::scalar::GroupScalar;
 use core::fmt::{Debug, Display};
 // Removed: use p256::elliptic_curve::generic_array::GenericArray;
-use p256::elliptic_curve::ScalarPrimitive;
-use p256::elliptic_curve::Field; // For Scalar::random
-use p256::{Scalar, FieldBytes}; // p256 uses Scalar for its scalar type
-use std::ops::Neg; // For self.0.neg()
 use hybrid_array::typenum::U32; // P-256 scalars are 32 bytes
 use hybrid_array::Array as HybridArray;
+use p256::elliptic_curve::Field; // For Scalar::random
+use p256::elliptic_curve::ScalarPrimitive;
+use p256::{FieldBytes, Scalar}; // p256 uses Scalar for its scalar type
 use rand::RngCore;
+use std::ops::Neg; // For self.0.neg()
 // p256's Scalar does not directly support from_hash like curve25519-dalek's Scalar.
 // Hashing to a scalar would typically involve hashing to bytes and then converting those bytes to a scalar,
 // possibly using Scalar::from_repr or similar, after ensuring the bytes represent a valid scalar value (e.g., by reduction modulo group order).
@@ -105,7 +105,7 @@ impl FSerializable<U32> for P256Scalar {
         let scalar_primitive = ScalarPrimitive::from_bytes(field_bytes); //scalar_primitive is CtOption<ScalarPrimitive<Self>>
 
         if scalar_primitive.is_some().unwrap_u8() == 1 {
-             Ok(P256Scalar(scalar_primitive.unwrap().into()))
+            Ok(P256Scalar(scalar_primitive.unwrap().into()))
         } else {
             Err(SerError::DeserializationError)
         }
@@ -122,7 +122,7 @@ impl Default for P256Scalar {
 mod tests {
     use super::*;
     use crate::serialization_hybrid::FSerializable;
-    use crate::utils::rng; 
+    use crate::utils::rng;
     use hybrid_array::typenum::{Unsigned, U32};
 
     #[test]

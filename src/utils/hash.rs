@@ -1,4 +1,4 @@
-use sha3::{Digest, Sha3_512, Sha3_256}; // Or your chosen default digest algorithm
+use sha3::{Digest, Sha3_256, Sha3_512}; // Or your chosen default digest algorithm
 
 /// Returns a new hasher instance of the library's default digest algorithm.
 pub fn new_default_hasher() -> Sha3_512 {

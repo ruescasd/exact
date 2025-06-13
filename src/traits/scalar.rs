@@ -1,5 +1,6 @@
 use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
+use crate::traits::ScalarT;
 use core::ops::Mul as CoreMul;
 use hybrid_array::typenum::Prod;
 use hybrid_array::{Array, ArraySize};
@@ -61,8 +62,8 @@ where
     }
 }
 
-pub type ExponentN_<G, LenType> = Product<<G as CryptoGroup>::Scalar, LenType>;
-type ExponentNSize<G, LenType> = <Product<<G as CryptoGroup>::Scalar, LenType> as Size>::SizeType;
+pub type ExponentN_<G, LenType> = Product<ScalarT<G>, LenType>;
+type ExponentNSize<G, LenType> = <Product<ScalarT<G>, LenType> as Size>::SizeType;
 
 pub struct ExponentN<G, LenType>(pub ExponentN_<G, LenType>)
 where

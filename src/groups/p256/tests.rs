@@ -4,8 +4,8 @@ use crate::traits::{element::GroupElement, group::CryptoGroup, scalar::GroupScal
 use crate::utils::rng::DefaultRng; // For random operations
 use hybrid_array::typenum::{U32, U33}; // For serialized sizes
 use typenum::Unsigned; // For UXX::USIZE
-// Removed: use std::ops::Neg as OtherNeg; // Alias to avoid conflict if Neg is already in scope from traits
-// std::ops::Neg should be in scope via prelude or p256::Scalar's own methods.
+                       // Removed: use std::ops::Neg as OtherNeg; // Alias to avoid conflict if Neg is already in scope from traits
+                       // std::ops::Neg should be in scope via prelude or p256::Scalar's own methods.
 
 #[test]
 fn test_p256_scalar_addition() {
@@ -45,16 +45,23 @@ fn test_p256_scalar_negation() {
     let mut rng = DefaultRng;
     let s1 = P256Scalar::random(&mut rng);
     let s_neg = s1.negate(); // This calls P256Scalar's negate method, which calls self.0.neg()
-    // P256Scalar's negate method already uses self.0.neg().
-    // We are testing if our P256Scalar::negate() is consistent with direct negation if possible,
-    // or rather, that s_neg + s1 == 0.
-    // The P256Scalar(self.0.neg()) is what our negate() method does.
-    // So this test is more about s + (-s) = 0.
-    // Let's keep s_neg_direct as what our trait method produces.
+                             // P256Scalar's negate method already uses self.0.neg().
+                             // We are testing if our P256Scalar::negate() is consistent with direct negation if possible,
+                             // or rather, that s_neg + s1 == 0.
+                             // The P256Scalar(self.0.neg()) is what our negate() method does.
+                             // So this test is more about s + (-s) = 0.
+                             // Let's keep s_neg_direct as what our trait method produces.
     let s_neg_direct = s1.negate(); // This is P256Scalar(s1.0.neg())
 
-    assert_eq!(s_neg, s_neg_direct, "Scalar negation consistency check failed");
-    assert_eq!(s_neg.add(&s1), P256Scalar::zero(), "Negation property s + (-s) = 0 failed");
+    assert_eq!(
+        s_neg, s_neg_direct,
+        "Scalar negation consistency check failed"
+    );
+    assert_eq!(
+        s_neg.add(&s1),
+        P256Scalar::zero(),
+        "Negation property s + (-s) = 0 failed"
+    );
 }
 
 #[test]
@@ -80,10 +87,18 @@ fn test_p256_scalar_serialization_deserialization() {
     let s_orig = P256Scalar::random(&mut rng);
 
     let serialized_s = s_orig.serialize();
-    assert_eq!(serialized_s.len(), U32::USIZE, "Serialized scalar length mismatch");
+    assert_eq!(
+        serialized_s.len(),
+        U32::USIZE,
+        "Serialized scalar length mismatch"
+    );
 
-    let s_deserialized = P256Scalar::deserialize(serialized_s).expect("Scalar deserialization failed");
-    assert_eq!(s_orig, s_deserialized, "Original and deserialized scalars do not match");
+    let s_deserialized =
+        P256Scalar::deserialize(serialized_s).expect("Scalar deserialization failed");
+    assert_eq!(
+        s_orig, s_deserialized,
+        "Original and deserialized scalars do not match"
+    );
 
     // Test zero and one
     let s_zero = P256Scalar::zero();
@@ -112,7 +127,10 @@ fn test_p256_element_addition() {
     let s_sum = s1.add(&s2);
     let e3_expected = g.scalar_mul(&s_sum);
 
-    assert_eq!(e3_sum, e3_expected, "Element addition failed: e1+e2 != (s1+s2)*G");
+    assert_eq!(
+        e3_sum, e3_expected,
+        "Element addition failed: e1+e2 != (s1+s2)*G"
+    );
 }
 
 #[test]
@@ -125,11 +143,18 @@ fn test_p256_element_negation() {
     let e_neg = e.negate_element();
     let e_plus_e_neg = e.add_element(&e_neg);
 
-    assert_eq!(e_plus_e_neg, P256Element::identity(), "Element negation failed: e + (-e) != Id");
+    assert_eq!(
+        e_plus_e_neg,
+        P256Element::identity(),
+        "Element negation failed: e + (-e) != Id"
+    );
 
     let s_neg = s.negate();
     let e_neg_expected = g.scalar_mul(&s_neg);
-    assert_eq!(e_neg, e_neg_expected, "Element negation failed: (-s)*G != -(s*G)");
+    assert_eq!(
+        e_neg, e_neg_expected,
+        "Element negation failed: (-s)*G != -(s*G)"
+    );
 }
 
 #[test]
@@ -173,10 +198,18 @@ fn test_p256_element_serialization_deserialization() {
     let e_orig = g.scalar_mul(&s);
 
     let serialized_e = e_orig.serialize();
-    assert_eq!(serialized_e.len(), U33::USIZE, "Serialized element length mismatch");
+    assert_eq!(
+        serialized_e.len(),
+        U33::USIZE,
+        "Serialized element length mismatch"
+    );
 
-    let e_deserialized = P256Element::deserialize(serialized_e).expect("Element deserialization failed");
-    assert_eq!(e_orig, e_deserialized, "Original and deserialized elements do not match");
+    let e_deserialized =
+        P256Element::deserialize(serialized_e).expect("Element deserialization failed");
+    assert_eq!(
+        e_orig, e_deserialized,
+        "Original and deserialized elements do not match"
+    );
 
     // Test identity
     let e_id = P256Element::identity();
@@ -202,7 +235,11 @@ fn test_p256_group_generator() {
 fn test_p256_group_random_element_and_scalar() {
     let rand_e = P256Group::random_element();
     // Check that random element is not identity (highly improbable for a good random function)
-    assert_ne!(rand_e, P256Element::identity(), "Random element is identity");
+    assert_ne!(
+        rand_e,
+        P256Element::identity(),
+        "Random element is identity"
+    );
 
     let rand_s = P256Group::random_exponent();
     assert_ne!(rand_s, P256Scalar::zero(), "Random scalar is zero");
@@ -228,8 +265,14 @@ fn test_p256_group_hash_to_scalar() {
     let s4 = P256Group::hash_to_scalar(&[input1, input2]); // Different input
 
     assert_eq!(s1, s2, "Hash to scalar not deterministic for same input");
-    assert_ne!(s1, s3, "Hash to scalar produces same output for different inputs");
-    assert_ne!(s1, s4, "Hash to scalar produces same output for different input combinations");
+    assert_ne!(
+        s1, s3,
+        "Hash to scalar produces same output for different inputs"
+    );
+    assert_ne!(
+        s1, s4,
+        "Hash to scalar produces same output for different input combinations"
+    );
 
     // Check that the scalar is not zero (highly improbable for a good hash function)
     assert_ne!(s1, P256Scalar::zero(), "Hashed scalar is zero");
@@ -270,7 +313,10 @@ fn test_p256_element_addition_associativity() {
     // e1 + (e2 + e3)
     let sum_right_assoc = e1.add_element(&(e2.add_element(&e3)));
 
-    assert_eq!(sum_left_assoc, sum_right_assoc, "Element addition is not associative");
+    assert_eq!(
+        sum_left_assoc, sum_right_assoc,
+        "Element addition is not associative"
+    );
 }
 
 // Test distributivity: s*(e1+e2) = s*e1 + s*e2
@@ -304,11 +350,10 @@ fn test_p256_distributivity_scalar_addition_element() {
     let mut rng = DefaultRng;
     let s1 = P256Scalar::random(&mut rng);
     let s2 = P256Scalar::random(&mut rng);
-    
+
     let s_elem = P256Scalar::random(&mut rng); // Scalar for the base element
     let g = P256Group::generator();
     let e = g.scalar_mul(&s_elem);
-
 
     // (s1 + s2) * e
     let sum_scalars = s1.add(&s2);

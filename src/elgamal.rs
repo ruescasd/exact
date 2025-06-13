@@ -2,10 +2,13 @@ use crate::serialization_hybrid::{Error as SerHyError, FSerializable, Pair, Prod
 use crate::traits::element::{ElementN, GroupElement};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
+use crate::traits::{ElementT, ScalarT};
 use crate::utils::rng;
 use core::ops::Mul as CoreMul;
+use exact_derive::FSerializable;
 use hybrid_array::typenum::{Prod, U2};
 use hybrid_array::{Array, ArraySize};
+use typenum::Len;
 
 pub trait Encryptable<G: CryptoGroup, C> {
     fn encrypt(&self, key: &KeyPair<G>) -> C;
@@ -17,8 +20,9 @@ pub trait Decryptable<G: CryptoGroup, P> {
 }
 // --- End New Trait Definitions ---
 
-#[derive(Debug, Clone)]
-pub struct KeyPair<G: CryptoGroup>(pub Pair<G::Scalar, G::Element>);
+type KeyPair_<G> = Pair<ScalarT<G>, ElementT<G>>;
+#[derive(Debug, FSerializable)]
+pub struct KeyPair<G: CryptoGroup>(pub KeyPair_<G>);
 
 impl<G: CryptoGroup> KeyPair<G> {
     pub fn new() -> Self {
@@ -37,7 +41,7 @@ impl<G: CryptoGroup> KeyPair<G> {
     }
 }
 
-type KeyPairSize<G> =
+/*type KeyPairSize<G> =
     <Pair<<G as CryptoGroup>::Scalar, <G as CryptoGroup>::Element> as Size>::SizeType;
 impl<G: CryptoGroup> Size for KeyPair<G>
 where
@@ -59,16 +63,15 @@ where
         let product = Pair::<G::Scalar, G::Element>::deserialize(buffer)?;
         Ok(KeyPair(product))
     }
-}
+}*/
 
-// FIXME: elgamal really should be a product
 type ElGamal_<G> = Product<<G as CryptoGroup>::Element, U2>;
 type ElGamalSize<G> = <ElGamal_<G> as Size>::SizeType;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, FSerializable)]
 // For some reason this does not work, even though it should be identical to the below
 // pub struct ElGamal<G: CryptoGroup>(pub ElGamal_<G>);
-pub struct ElGamal<G: CryptoGroup>(pub Product<G::Element, typenum::U2>);
+pub struct ElGamal<G: CryptoGroup>(pub ElGamal_<G>);
 
 impl<G: CryptoGroup> ElGamal<G> {
     pub fn new(gr: G::Element, mhr: G::Element) -> Self {
@@ -83,7 +86,7 @@ impl<G: CryptoGroup> ElGamal<G> {
         &(self.0).0[1]
     }
 }
-
+/*
 impl<G: CryptoGroup> Size for ElGamal<G>
 where
     Product<G::Element, U2>: Size,
@@ -104,7 +107,7 @@ where
         let product = Product::<G::Element, U2>::deserialize(buffer)?;
         Ok(ElGamal(product))
     }
-}
+}*/
 
 // --- Encryptable/Decryptable Trait Implementations ---
 
@@ -140,7 +143,7 @@ impl<G: CryptoGroup> Decryptable<G, G::Element> for ElGamal<G> {
 type ElGamalN_<G, LenType> = Product<ElGamal<G>, LenType>;
 type ElGamalNSize<G, LenType> = <ElGamalN_<G, LenType> as Size>::SizeType;
 
-pub struct ElGamalN<G, LenType>(pub Product<ElGamal<G>, LenType>)
+pub struct ElGamalN<G, LenType>(pub ElGamalN_<G, LenType>)
 where
     G: CryptoGroup,
     LenType: ArraySize;
@@ -212,10 +215,10 @@ impl<G, LenType> Decryptable<G, ElementN<G, LenType>> for ElGamalN<G, LenType>
 where
     G: CryptoGroup,
     LenType: ArraySize,
-    ElGamal<G>: Clone,
 {
     fn decrypt(&self, key: &KeyPair<G>) -> ElementN<G, LenType> {
-        let decrypted = self.0 .0.clone().map(|ciphertext| ciphertext.decrypt(key));
+        let decrypted = self.0 .0.iter().map(|ciphertext| ciphertext.decrypt(key));
+        let decrypted = decrypted.collect();
         ElementN::<G, LenType>::new(Product(decrypted))
     }
 }

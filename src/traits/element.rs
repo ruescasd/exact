@@ -1,6 +1,7 @@
 use crate::serialization_hybrid::{FSerializable, Product, Size};
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
+use crate::traits::ElementT;
 use hybrid_array::Array;
 use hybrid_array::ArraySize;
 
@@ -16,7 +17,7 @@ pub trait GroupElement: Sized + Debug {
     fn eq(&self, other: &Self) -> bool;
 }
 
-type ElementN_<G, LenType> = Product<<G as CryptoGroup>::Element, LenType>;
+type ElementN_<G, LenType> = Product<ElementT<G>, LenType>;
 
 impl<E, LenType> GroupElement for Product<E, LenType>
 where
@@ -76,7 +77,7 @@ where
      */
 }
 
-type ElementNSize<G, LenType> = <Product<<G as CryptoGroup>::Element, LenType> as Size>::SizeType;
+type ElementNSize<G, LenType> = <Product<ElementT<G>, LenType> as Size>::SizeType;
 
 pub struct ElementN<G, LenType>(pub ElementN_<G, LenType>)
 where

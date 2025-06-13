@@ -1,16 +1,19 @@
-use crate::serialization_hybrid::{self, FSerializable, Size};
+use crate::serialization_hybrid::{FSerializable, Pair, Size};
 use crate::traits::element::GroupElement;
 use crate::traits::group::CryptoGroup;
 use crate::traits::scalar::GroupScalar;
+use crate::traits::{ElementT, ScalarT};
+use exact_derive::FSerializable;
 
 use crate::utils::rng;
 
-#[derive(Debug)]
-pub struct Proof<G: CryptoGroup>(serialization_hybrid::Pair<G::Element, G::Scalar>);
+type Schnorr_<G> = Pair<ElementT<G>, ScalarT<G>>;
+#[derive(Debug, FSerializable)]
+pub struct Proof<G: CryptoGroup>(Schnorr_<G>);
 
 impl<G: CryptoGroup> Proof<G> {
     pub fn new(t: G::Element, s: G::Scalar) -> Self {
-        Proof(serialization_hybrid::Pair(t, s))
+        Proof(Pair(t, s))
     }
 
     pub fn commitment(&self) -> &G::Element {
@@ -19,34 +22,6 @@ impl<G: CryptoGroup> Proof<G> {
 
     pub fn response(&self) -> &G::Scalar {
         &self.0 .1
-    }
-}
-
-type SchnorrProof_<G> =
-    serialization_hybrid::Pair<<G as CryptoGroup>::Element, <G as CryptoGroup>::Scalar>;
-type SchnorrProofSize<G> = <SchnorrProof_<G> as Size>::SizeType;
-
-impl<G: CryptoGroup> Size for Proof<G>
-where
-    SchnorrProof_<G>: Size,
-{
-    type SizeType = SchnorrProofSize<G>;
-}
-
-impl<G: CryptoGroup> FSerializable<SchnorrProofSize<G>> for Proof<G>
-where
-    SchnorrProof_<G>: Size,
-    SchnorrProof_<G>: FSerializable<SchnorrProofSize<G>>,
-{
-    fn serialize(&self) -> hybrid_array::Array<u8, SchnorrProofSize<G>> {
-        self.0.serialize()
-    }
-
-    fn deserialize(
-        bytes: hybrid_array::Array<u8, SchnorrProofSize<G>>,
-    ) -> Result<Self, crate::serialization_hybrid::Error> {
-        let pair = SchnorrProof_::<G>::deserialize(bytes);
-        Ok(Proof(pair?))
     }
 }
 
